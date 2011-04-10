@@ -1,0 +1,17 @@
+List of LOWL constants:
+- LCH LNM LICH: Basic type size information.
+- NLREP SPREP TABREP QUTREP: Character-set independent information.
+
+List of LOWL registers:
+- A, the Numerical Register
+- B, the Index Register
+- C, the Character Register
+
+List of LOWL system variables:
+- FFPT, LFPT: Forward and Backward stack pointers.
+- SRCPT, DSTPT: Source and Destination pointers for FMOVE and MOVE.
+
+Errors in LOWLMAP:
+
+Pg. 24: CON N-OF doesn't list CON -N-OF.
+
