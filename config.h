@@ -5,6 +5,7 @@
 
 #define LCH_VAL 	1
 #define LICH_VAL 	1
-#define LNM_VAL		LLVM_PTRSIZE
+#define LNM_VAL		(LLVM_PTRSIZE/8)
+
 
 #endif

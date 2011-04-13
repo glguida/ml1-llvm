@@ -1,6 +1,6 @@
 #ifndef _LLVM_CONFIG_H
 #define _LLVM_CONFIG_H
-
+#include <stdint.h>
 /*
  * LLVM pointer aliasing rules prevent us from using  GEP to
  * transform pointers to integers, do some operations with
@@ -17,5 +17,6 @@
  * backends.
  */
 #define LLVM_PTRSIZE	64
+typedef uint64_t lowlint_t;
 
 #endif

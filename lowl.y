@@ -55,7 +55,16 @@
 		yyerror("Wrong character in statement");\
 		exit(-1);				\
 	}
-	
+
+/*
+ * Special macro for code statements.
+ * This helps keeping track of the pseudo-PC.
+ * CEMIT is used for continuation instruction, while
+ * SEMIT is used for stopping instruction.
+ */
+#define CEMIT(_f) { emit_##_f; emit_newpc(0); }
+#define SEMIT(_f) { emit_##_f; emit_newpc(1); }
+
 extern int yylineno;
 void yyerror(char *s);
 int yylex();
@@ -138,56 +147,56 @@ table_statement:
 	;
 
 code_statement:
-	LAV v ',' rx		{ emit_lav($2,$4); }
-	| LBV v			{ emit_lbv($2); }
-	| LAL nof		{ emit_lal($2); }
-	| LCN charname		{ emit_lcn($2); }
-	| LAM nof		{ emit_lam($2); }
-	| LCM nof		{ emit_lcm($2); }
-	| LAI v ',' rx		{ emit_lai($2,$4); }
-	| LCI v ',' rx		{ emit_lci($2,$4); }
-	| LAA v ',' dc		{ emit_laa($2,$4); }
-	| STV v ',' px		{ emit_stv($2,$4); }
-	| STI v ',' px		{ emit_sti($2,$4); }
-	| CLEAR v		{ emit_clear($2); }
-	| AAV v			{ emit_aav($2); }
-	| ABV v			{ emit_abv($2); }
-	| AAL nof		{ emit_aal($2); }
-	| SAV v			{ emit_sav($2); }
-	| SBV v			{ emit_sbv($2);	}
-	| SAL nof		{ emit_sal($2); }
-	| SBL nof		{ emit_sbl($2); }
-	| MULTL nof		{ emit_multl($2); }
-	| BUMP v ',' nof	{ emit_bump($2, $4); }
-	| ANDV v 		{ emit_andv($2); }
-	| ANDL NUMBER		{ emit_andl($2); }
-	| CAV v ',' ax		{ emit_cav($2); }
-	| CAL nof		{ emit_cal($2); }
-	| CCL STRING		{ _CHECK_CHAR($2); emit_ccl($2); }
-	| CCN charname		{ emit_ccl($2); /* CCL == CCN here. */ }
-	| CAI v ',' ax		{ emit_cai($2,$4); }
-	| CCI v 		{ emit_cci($2); }
-	| SUBR SYMBOL ',' parnm ',' NUMBER 	{ emit_subr($2, $4, $6); }
-	| EXIT NUMBER ',' SYMBOL 		{ emit_exit($2, $4); }
-	| GOSUB SYMBOL ',' distance 		{ emit_gosub($2, $4); }
-	| GOADD v				{ emit_goadd($2); }
-	| CSS					{ emit_css(); }
-	| GO v ',' distance ',' ex ',' ctx	{ emit_go($2,$4,$6,$8); }
-	| GOEQ v ',' distance ',' ex ',' ctx  	{ emit_goeq($2,$4,$6,$8); }
-	| GONE v ',' distance ',' ex ',' ctx  	{ emit_gone($2,$4,$6,$8); }
-	| GOGE v ',' distance ',' ex ',' ctx  	{ emit_goge($2,$4,$6,$8); }
-	| GOGR v ',' distance ',' ex ',' ctx  	{ emit_gogr($2,$4,$6,$8); }
-	| GOLE v ',' distance ',' ex ',' ctx  	{ emit_gole($2,$4,$6,$8); }
-	| GOLT v ',' distance ',' ex ',' ctx  	{ emit_golt($2,$4,$6,$8); }
-	| GOPC v ',' distance ',' ex ',' ctx  	{ emit_gopc($2,$4,$6,$8); }
-	| GOND v ',' distance ',' ex ',' ctx  	{ emit_gond($2,$4,$6,$8); }
-	| FSTK			{ emit_fstk(); }
-	| BSTK			{ emit_bstk(); }
-	| CFSTK			{ emit_cfstk(); }
-	| UNSTK v		{ emit_unstk($2); }
-	| FMOVE			{ emit_fmove(); }
-	| BMOVE			{ emit_bmove(); }
-	| MESS STRING		{ emit_mess($2); }
+	LAV v ',' rx		{ CEMIT(lav($2,$4)); }
+	| LBV v			{ CEMIT(lbv($2)); }
+	| LAL nof		{ CEMIT(lal($2)); }
+	| LCN charname		{ CEMIT(lcn($2)); }
+	| LAM nof		{ CEMIT(lam($2)); }
+	| LCM nof		{ CEMIT(lcm($2)); }
+	| LAI v ',' rx		{ CEMIT(lai($2,$4)); }
+	| LCI v ',' rx		{ CEMIT(lci($2,$4)); }
+	| LAA v ',' dc		{ CEMIT(laa($2,$4)); }
+	| STV v ',' px		{ CEMIT(stv($2,$4)); }
+	| STI v ',' px		{ CEMIT(sti($2,$4)); }
+	| CLEAR v		{ CEMIT(clear($2)); }
+	| AAV v			{ CEMIT(aav($2)); }
+	| ABV v			{ CEMIT(abv($2)); }
+	| AAL nof		{ CEMIT(aal($2)); }
+	| SAV v			{ CEMIT(sav($2)); }
+	| SBV v			{ CEMIT(sbv($2));	}
+	| SAL nof		{ CEMIT(sal($2)); }
+	| SBL nof		{ CEMIT(sbl($2)); }
+	| MULTL nof		{ CEMIT(multl($2)); }
+	| BUMP v ',' nof	{ CEMIT(bump($2, $4)); }
+	| ANDV v 		{ CEMIT(andv($2)); }
+	| ANDL NUMBER		{ CEMIT(andl($2)); }
+	| CAV v ',' ax		{ CEMIT(cav($2)); }
+	| CAL nof		{ CEMIT(cal($2)); }
+	| CCL STRING		{ _CHECK_CHAR($2); CEMIT(ccl($2)); }
+	| CCN charname		{ CEMIT(ccn($2)); }
+	| CAI v ',' ax		{ CEMIT(cai($2,$4)); }
+	| CCI v 		{ CEMIT(cci($2)); }
+	| SUBR SYMBOL ',' parnm ',' NUMBER 	{ CEMIT(subr($2, $4, $6)); }
+	| EXIT NUMBER ',' SYMBOL 		{ SEMIT(exit($2, $4)); }
+	| GOSUB SYMBOL ',' distance 		{ SEMIT(gosub($2, $4)); }
+	| GOADD v				{ SEMIT(goadd($2)); }
+	| CSS					{ CEMIT(css()); }
+	| GO v ',' distance ',' ex ',' ctx	{ SEMIT(go($2,$4,$6,$8)); }
+	| GOEQ v ',' distance ',' ex ',' ctx  	{ CEMIT(goeq($2,$4,$6,$8)); }
+	| GONE v ',' distance ',' ex ',' ctx  	{ CEMIT(gone($2,$4,$6,$8)); }
+	| GOGE v ',' distance ',' ex ',' ctx  	{ CEMIT(goge($2,$4,$6,$8)); }
+	| GOGR v ',' distance ',' ex ',' ctx  	{ CEMIT(gogr($2,$4,$6,$8)); }
+	| GOLE v ',' distance ',' ex ',' ctx  	{ CEMIT(gole($2,$4,$6,$8)); }
+	| GOLT v ',' distance ',' ex ',' ctx  	{ CEMIT(golt($2,$4,$6,$8)); }
+	| GOPC v ',' distance ',' ex ',' ctx  	{ CEMIT(gopc($2,$4,$6,$8)); }
+	| GOND v ',' distance ',' ex ',' ctx  	{ CEMIT(gond($2,$4,$6,$8)); }
+	| FSTK			{ CEMIT(fstk()); }
+	| BSTK			{ CEMIT(bstk()); }
+	| CFSTK			{ CEMIT(cfstk()); }
+	| UNSTK v		{ CEMIT(unstk($2)); }
+	| FMOVE			{ CEMIT(fmove()); }
+	| BMOVE			{ CEMIT(bmove()); }
+	| MESS STRING		{ CEMIT(mess($2)); }
 	| NB STRING		{ emit_nb($2); }
 	| PRGST STRING		{ emit_prgst($2); }
 	| PRGEN			{ emit_prgen(); }

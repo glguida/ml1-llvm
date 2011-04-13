@@ -15,3 +15,23 @@ Errors in LOWLMAP:
 
 Pg. 24: CON N-OF doesn't list CON -N-OF.
 
+MAJOR ISSUES IN MAPPING TO LLVM:
+
+- LLVM doesn't have the concept of PC.
+  This means that we have to find articulate ways to implement
+  EXIT n and GOADD. While EXIT n could be solved by a double
+  pass system (which could actually get rid as well of the
+  table and string declaration systems) would be unhelpful
+  for GOADD, where LOWL doesn't give us any idea about the
+  maximum value contained in the variable.
+
+- LLVM cannot let us use the stack, as it is function based.
+  This means that in order to implement subroutines (which
+  cannot be mplemented as LLVM function as some of them 
+  might arbitrarily jump to basic block in the main function)
+  we need to implement an artificial stack.
+  The LLOWL manual help us by telling that "a dozen" -- 
+  unknown if literal or figurative -- stack entries would
+  be enough. It's still to test whether this applies to
+  ML/I or not.
+

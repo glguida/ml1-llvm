@@ -1,6 +1,7 @@
 void emitter_init(void);
 void emitter_fini(void);
 
+void emit_newpc();
 void emit_eol();
 void emit_table_label();
 void emit_label();
@@ -36,6 +37,7 @@ void emit_andl();
 void emit_cav();
 void emit_cal();
 void emit_ccl();
+void emit_ccn();
 void emit_cai();
 void emit_cci();
 void emit_subr();
