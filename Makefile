@@ -1,11 +1,11 @@
-lowl-map-test: y.tab.c lex.yy.c emit_llvm.c
+lowl-mapper: y.tab.c lex.yy.c emit_llvm.c
 	$(CC) $(CFLAGS) -DLOWL_TEST -o $@ $^
 
-y.tab.c: lowl.y 
-	$(YACC) -d lowl.y
+y.tab.c: mapper.y 
+	$(YACC) -d mapper.y
 
-lex.yy.c: lowl.l y.tab.c
-	$(LEX) lowl.l
+lex.yy.c: mapper.l y.tab.c
+	$(LEX) mapper.l
 
 
 clean:

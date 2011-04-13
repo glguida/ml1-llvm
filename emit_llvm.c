@@ -364,14 +364,6 @@ emitter_init(void)
 	w("%%LLNUM = type i%d; Numerical is %d bits\n",
 	  LLVM_PTRSIZE, LLVM_PTRSIZE);
 	w("\n");
-	/* Declare LOWL registers. */
-	w("; LOWL Registers.\n");
-	w("@A_REG = internal global %%LLNUM 0;\n");
-	w("@B_REG = internal global %%LLNUM 0;\n");
-	w("@C_REG = internal global i8 0;\n");
-	/* Other registers not in the manual. */
-	w("@CMP = internal global %%LLNUM 0;\n");
-	w("\n");
 	w("; External declarations.\n");
 	w("declare void @lowl_puts(i8*);\n");
 	w("declare void @lowl_pushlink(i32);\n");
@@ -431,7 +423,14 @@ void emit_label(char *lbl)
 		tbl_dump();
 		w("\n");
 		w("\n;\n; LOWL LLVM function\n");
-		w("define void @LLOWL_main(%%LLNUM %%ffpt, %%LLNUM %%lfpt) {\n");
+		w("define void @LLOWL_main(%%LLNUM %%ffpt, %%LLNUM %%lfpt)\n");
+		w("{\n");
+		w("; Allocate LOWL registers on stack.\n");
+		w("%%A_REG = alloca %%LLNUM\n");
+		w("%%B_REG = alloca %%LLNUM\n");
+		w("%%C_REG = alloca i8\n");
+		w("; Allocate compare result register on stack.\n");
+		w("%%CMP = alloca %%LLNUM\n");
 		w("; Initialize LOWL stack.\n");
 		w("store %%LLNUM %%ffpt, %%LLNUM* @FFPT\n");
 		w("store %%LLNUM %%lfpt, %%LLNUM* @LFPT\n");
@@ -495,8 +494,8 @@ void emit_dcl(char *var)
 
 void emit_equ(char *arg1, char *arg2)
 {
-	printf("@%s = alias %%LLNUM* @%s;    EQU %s %s\n",
-	       arg1, arg2, arg1, arg2);
+	w("@%s = alias %%LLNUM* @%s;    EQU %s %s\n",
+	  arg1, arg2, arg1, arg2);
 }
 
 
@@ -546,7 +545,7 @@ void emit_lav(char *v, char rx)
 {
 	static int lav_cnt = 0;
 	w("%%lav.%d = load %%LLNUM* @%s;    LAV %s, %c\n", lav_cnt, v, v, rx);
-	w("store %%LLNUM %%lav.%d, %%LLNUM* @A_REG;\n", lav_cnt);
+	w("store %%LLNUM %%lav.%d, %%LLNUM* %%A_REG;\n", lav_cnt);
 	lav_cnt++;
 }
 
@@ -554,34 +553,34 @@ void emit_lbv(char *v)
 {
 	static int lbv_cnt = 0;
 	w("%%lbv.%d = load %%LLNUM* @%s;    LBV %s\n", lbv_cnt, v, v);
-	w("store %%LLNUM %%lbv.%d, %%LLNUM* @B_REG;\n", lbv_cnt);
+	w("store %%LLNUM %%lbv.%d, %%LLNUM* %%B_REG;\n", lbv_cnt);
 	lbv_cnt++;
 }
 
 
 void emit_lal(intptr_t nof)
 {
-	w("store %%LLNUM %ld, %%LLNUM* @A_REG;    LAL %ld\n",
+	w("store %%LLNUM %ld, %%LLNUM* %%A_REG;    LAL %ld\n",
 	  nof, nof);
 }
 
 
 void emit_lcn(char cn)
 {
-	w("store i8 %d, i8* @C_REG;    LCN '%d'\n", cn, cn);
+	w("store i8 %d, i8* %%C_REG;    LCN '%d'\n", cn, cn);
 }
 
 
 void emit_lam(intptr_t nof)
 {
 	static int lam_cnt = 0;
-	w("%%lam.%d = load %%LLNUM* @B_REG;    LAM %d\n", lam_cnt, nof);
+	w("%%lam.%d = load %%LLNUM* %%B_REG;    LAM %d\n", lam_cnt, nof);
 	w("%%lam.2.%d = add %%LLNUM %%lam.%d, %d\n", lam_cnt, lam_cnt, nof);
 	w("%%lam.3.%d = inttoptr %%LLNUM %%lam.2.%d to %%LLNUM*\n",
 	  lam_cnt, lam_cnt);
 	w("%%lam.4.%d = load %%LLNUM* %%lam.3.%d\n", lam_cnt, lam_cnt);
-	w("store %%LLNUM %%lam.4.%d, %%LLNUM* @A_REG\n", lam_cnt);
-	w("store %%LLNUM %%lam.2.%d, %%LLNUM* @B_REG\n", lam_cnt);
+	w("store %%LLNUM %%lam.4.%d, %%LLNUM* %%A_REG\n", lam_cnt);
+	w("store %%LLNUM %%lam.2.%d, %%LLNUM* %%B_REG\n", lam_cnt);
 	lam_cnt++;
 }
 
@@ -589,12 +588,12 @@ void emit_lam(intptr_t nof)
 void emit_lcm(intptr_t nof)
 {
 	static int cnt = 0;
-	w("%%lcm.c.%d = load %%LLNUM* @B_REG\n", cnt);
+	w("%%lcm.c.%d = load %%LLNUM* %%B_REG\n", cnt);
 	w("%%lcm.n.%d = add %%LLNUM %%lcm.c.%d, %d\n", cnt, cnt, nof);
 	w("%%lcm.p.%d = inttoptr %%LLNUM %%lcm.n.%d to i8*\n", cnt, cnt);
 	w("%%lcm.r.%d = load i8* %%lcm.p.%d\n", cnt, cnt);
-	w("store i8 %%lcm.r.%d\n, i8* @C_REG\n", cnt);
-	w("store %%LLNUM %%lcm.n.%d\n, %%LLNUM* @B_REG\n", cnt);
+	w("store i8 %%lcm.r.%d\n, i8* %%C_REG\n", cnt);
+	w("store %%LLNUM %%lcm.n.%d\n, %%LLNUM* %%B_REG\n", cnt);
 	cnt++;
 }
 
@@ -605,7 +604,7 @@ void emit_lai(char *v)
 	w("%%lai.v.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%lai.p.%d = inttoptr %%LLNUM %%lai.v.%d to %%LLNUM*\n", cnt, cnt);
 	w("%%lai.r.%d = load %%LLNUM* %%lai.p.%d\n", cnt, cnt);
-	w("store %%LLNUM %%lai.r.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%lai.r.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
 
@@ -616,7 +615,7 @@ void emit_lci(char *v)
 	w("%%lci.v.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%lci.p.%d = inttoptr %%LLNUM %%lci.v.%d to i8*\n", cnt, cnt);
 	w("%%lci.r.%d = load i8* %%lci.p.%d\n", cnt, cnt);
-	w("store i8 %%lci.r.%d, i8* @C_REG\n", cnt);
+	w("store i8 %%lci.r.%d, i8* %%C_REG\n", cnt);
 	cnt++;
 }
 
@@ -633,7 +632,7 @@ void emit_laa(char *v, char dc)
 		w("%%laa.t.%d = ptrtoint %%lowltabty* @LOWLTAB to %%LLNUM\n", cnt);
 		w("%%laa.v.%d = add %%LLNUM %%laa.t.%d, %%laa.o.%d\n", cnt, cnt, cnt);
 	}
-	w("store %%LLNUM %%laa.v.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%laa.v.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
 
@@ -641,7 +640,7 @@ void emit_laa(char *v, char dc)
 void emit_stv(char *v, char px)
 {
 	static int stv_cnt = 0;
-	w("%%stv.%d = load %%LLNUM* @A_REG;    STV %s, %c\n", stv_cnt, v, px);
+	w("%%stv.%d = load %%LLNUM* %%A_REG;    STV %s, %c\n", stv_cnt, v, px);
 	w("store %%LLNUM %%stv.%d, %%LLNUM* @%s\n", stv_cnt, v);
 	stv_cnt++;
 }
@@ -652,7 +651,7 @@ void emit_sti(char *v)
 	static int cnt = 0;
 	w("%%sti.v.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%sti.p.%d = inttoptr %%LLNUM %%sti.v.%d to %%LLNUM*\n", cnt, cnt);
-	w("%%sti.a.%d = load %%LLNUM* @A_REG\n", cnt);
+	w("%%sti.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("store %%LLNUM %%sti.a.%d, %%LLNUM* %%sti.p.%d\n", cnt, cnt);
 	cnt++;
 }
@@ -667,11 +666,11 @@ void emit_clear(char *v)
 void emit_aav(char *v)
 {
 	static int aav_cnt = 0;
-	w("%%aav.%d = load %%LLNUM* @A_REG;    ABV %s\n", aav_cnt, v);
+	w("%%aav.%d = load %%LLNUM* %%A_REG;    ABV %s\n", aav_cnt, v);
 	w("%%aav.2.%d = load %%LLNUM* @%s\n", aav_cnt, v);
 	w("%%aav.3.%d = add %%LLNUM %%aav.%d, %%aav.2.%d\n",
 	  aav_cnt, aav_cnt, aav_cnt);
-	w("store %%LLNUM %%aav.3.%d, %%LLNUM* @A_REG\n", aav_cnt);
+	w("store %%LLNUM %%aav.3.%d, %%LLNUM* %%A_REG\n", aav_cnt);
 	aav_cnt++;
 }
 
@@ -679,11 +678,11 @@ void emit_aav(char *v)
 void emit_abv(char *v)
 {
 	static cnt = 0;
-	w("%%abv.%d = load %%LLNUM* @B_REG;    AAV %s\n", cnt, v);
+	w("%%abv.%d = load %%LLNUM* %%B_REG;    AAV %s\n", cnt, v);
 	w("%%abv.2.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%abv.3.%d = add %%LLNUM %%abv.%d, %%abv.2.%d\n",
 	  cnt, cnt, cnt);
-	w("store %%LLNUM %%abv.3.%d, %%LLNUM* @B_REG\n", cnt);
+	w("store %%LLNUM %%abv.3.%d, %%LLNUM* %%B_REG\n", cnt);
 	cnt++;
 }
 
@@ -691,9 +690,9 @@ void emit_abv(char *v)
 void emit_aal(intptr_t nof)
 {
 	static cnt = 0;
-	w("%%aal.%d = load %%LLNUM* @A_REG;    AAL %d\n", cnt, nof);
+	w("%%aal.%d = load %%LLNUM* %%A_REG;    AAL %d\n", cnt, nof);
 	w("%%aal.2.%d = add %%LLNUM %%aal.%d, %d\n", cnt, cnt, nof);
-	w("store %%LLNUM %%aal.2.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%aal.2.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
 
@@ -701,11 +700,11 @@ void emit_aal(intptr_t nof)
 void emit_sav(char *v)
 {
 	static int sav_cnt = 0;
-	w("%%sav.%d = load %%LLNUM* @A_REG;    SAV %s\n", sav_cnt, v);
+	w("%%sav.%d = load %%LLNUM* %%A_REG;    SAV %s\n", sav_cnt, v);
 	w("%%sav.2.%d = load %%LLNUM* @%s\n", sav_cnt, v);
 	w("%%sav.3.%d = sub %%LLNUM %%sav.%d, %%sav.2.%d\n",
 	  sav_cnt, sav_cnt, sav_cnt);
-	w("store %%LLNUM %%sav.3.%d, %%LLNUM* @A_REG\n", sav_cnt);
+	w("store %%LLNUM %%sav.3.%d, %%LLNUM* %%A_REG\n", sav_cnt);
 	sav_cnt++;
 }
 
@@ -713,11 +712,11 @@ void emit_sav(char *v)
 void emit_sbv(char *v)
 {
 	static int cnt = 0;
-	w("%%sbv.%d = load %%LLNUM* @B_REG;    SBV %s\n", cnt, v);
+	w("%%sbv.%d = load %%LLNUM* %%B_REG;    SBV %s\n", cnt, v);
 	w("%%sbv.2.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%sbv.3.%d = sub %%LLNUM %%sbv.%d, %%sbv.2.%d\n",
 	  cnt, cnt, cnt);
-	w("store %%LLNUM %%sbv.3.%d, %%LLNUM* @B_REG\n", cnt);
+	w("store %%LLNUM %%sbv.3.%d, %%LLNUM* %%B_REG\n", cnt);
 	cnt++;
 }
 
@@ -725,10 +724,10 @@ void emit_sbv(char *v)
 void emit_sal(intptr_t nof)
 {
 	static int sal_cnt = 0;
-	w("%%sal.%d = load %%LLNUM* @A_REG;    SAL %d\n", sal_cnt, nof);
+	w("%%sal.%d = load %%LLNUM* %%A_REG;    SAL %d\n", sal_cnt, nof);
 	w("%%sal.3.%d = sub %%LLNUM %%sal.%d, %d\n",
 	  sal_cnt, sal_cnt, nof);
-	w("store %%LLNUM %%sal.3.%d, %%LLNUM* @A_REG\n", sal_cnt);
+	w("store %%LLNUM %%sal.3.%d, %%LLNUM* %%A_REG\n", sal_cnt);
 	sal_cnt++;
 }
 
@@ -736,9 +735,9 @@ void emit_sal(intptr_t nof)
 void emit_sbl(intptr_t nof)
 {
 	static cnt = 0;
-	w("%%sbl.b.%d = load %%LLNUM* @B_REG\n", cnt);
+	w("%%sbl.b.%d = load %%LLNUM* %%B_REG\n", cnt);
 	w("%%sbl.r.%d = sub %%LLNUM %%sbl.b.%d, %d\n", cnt, cnt, nof);
-	w("store %%LLNUM %%sbl.r.%d, %%LLNUM* @B_REG\n", cnt);
+	w("store %%LLNUM %%sbl.r.%d, %%LLNUM* %%B_REG\n", cnt);
 	cnt++;
 }
 
@@ -746,9 +745,9 @@ void emit_sbl(intptr_t nof)
 void emit_multl(intptr_t nof)
 {
 	static cnt = 0;
-	w("%%mul.a.%d = load %%LLNUM* @A_REG\n", cnt);
+	w("%%mul.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%mul.r.%d = mul %%LLNUM %%mul.a.%d, %ld\n", cnt, cnt, nof);
-	w("store %%LLNUM %%mul.r.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%mul.r.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
 
@@ -767,10 +766,10 @@ void emit_andv(char *v)
 {
 	static int cnt = 0;
 	w("%%andv.v.%d = load %%LLNUM* @%s\n", cnt, v);
-	w("%%andv.a.%d = load %%LLNUM* @A_REG\n", cnt);
+	w("%%andv.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%andv.r.%d = and %%LLNUM %%andv.v.%d, %%andv.a.%d\n",
 	  cnt, cnt, cnt);
-	w("store %%LLNUM %%andv.r.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%andv.r.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
 
@@ -778,19 +777,19 @@ void emit_andv(char *v)
 void emit_andl(uintptr_t n)
 {
 	static int cnt = 0;
-	w("%%andl.a.%d = load %%LLNUM* @A_REG\n", cnt);
+	w("%%andl.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%andl.r.%d = and %%LLNUM %lu, %%andl.a.%d\n", cnt, n, cnt);
-	w("store %%LLNUM %%andl.r.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%andl.r.%d, %%LLNUM* %%A_REG\n", cnt);
 }
 
 
 void emit_cav(char *v)
 {
 	static int cnt = 0;
-	w("%%cav.a.%d = load %%LLNUM* @A_REG;\n", cnt);
+	w("%%cav.a.%d = load %%LLNUM* %%A_REG;\n", cnt);
 	w("%%cav.v.%d = load %%LLNUM* @%s;\n", cnt, v);
 	w("%%cav.cmp.%d = sub %%LLNUM %%cav.a.%d, %%cav.v.%d;\n", cnt,cnt,cnt);
-	w("store %%LLNUM %%cav.cmp.%d, %%LLNUM* @CMP\n", cnt);
+	w("store %%LLNUM %%cav.cmp.%d, %%LLNUM* %%CMP\n", cnt);
 	cnt++;
 }
 
@@ -798,19 +797,19 @@ void emit_cav(char *v)
 void emit_cal(intptr_t nof)
 {
 	static int cal_cnt = 0;
-	w("%%cal.%d = load %%LLNUM* @A_REG;   CAL %ld\n", cal_cnt, nof);
+	w("%%cal.%d = load %%LLNUM* %%A_REG;   CAL %ld\n", cal_cnt, nof);
 	w("%%cal_cmp.%d = sub %%LLNUM %%cal.%d, %ld\n", cal_cnt, cal_cnt, nof);
-	w("store %%LLNUM %%cal_cmp.%d, %%LLNUM* @CMP\n", cal_cnt);
+	w("store %%LLNUM %%cal_cmp.%d, %%LLNUM* %%CMP\n", cal_cnt);
 	cal_cnt++;
 }
 
 void emit_ccn(char c)
 {
 	static int cnt = 0;
-	w("%%ccl.c.%d = load i8* @C_REG\n", cnt);
+	w("%%ccl.c.%d = load i8* %%C_REG\n", cnt);
 	w("%%ccl.cmp.%d = sub i8 %%ccl.c.%d , %d\n", cnt, cnt, c);
 	w("%%ccl.r.%d = sext i8 %%ccl.cmp.%d to %%LLNUM\n", cnt, cnt);
-	w("store %%LLNUM %%ccl.r.%d, %%LLNUM* @CMP\n", cnt);
+	w("store %%LLNUM %%ccl.r.%d, %%LLNUM* %%CMP\n", cnt);
 	cnt++;
 }
 
@@ -826,9 +825,9 @@ void emit_cai(char *v)
 	w("%%cai.v.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%cai.p.%d = inttoptr %%LLNUM %%cai.v.%d to %%LLNUM*\n", cnt, cnt);
 	w("%%cai.r.%d = load %%LLNUM* %%cai.p.%d\n", cnt, cnt);
-	w("%%cai.a.%d = load %%LLNUM* @A_REG\n", cnt, cnt);
+	w("%%cai.a.%d = load %%LLNUM* %%A_REG\n", cnt, cnt);
 	w("%%cai.cmp.%d = sub %%LLNUM %%cai.a.%d, %%cai.r.%d\n", cnt, cnt, cnt);
-	w("store %%LLNUM %%cai.cmp.%d, %%LLNUM* @CMP\n", cnt);
+	w("store %%LLNUM %%cai.cmp.%d, %%LLNUM* %%CMP\n", cnt);
 	cnt++;
 }
 
@@ -838,10 +837,10 @@ void emit_cci(char *v)
 	w("%%cci.v.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%cci.p.%d = inttoptr %%LLNUM %%cci.v.%d to i8*\n", cnt, cnt);
 	w("%%cci.r.%d = load i8* %%cci.p.%d\n", cnt, cnt);
-	w("%%cci.c.%d = load i8* @C_REG\n", cnt);
+	w("%%cci.c.%d = load i8* %%C_REG\n", cnt);
 	w("%%cci.s.%d = sub i8 %%cci.c.%d, %%cci.r.%d\n", cnt, cnt, cnt);
 	w("%%cci.cmp.%d = zext i8 %%cci.s.%d to %%LLNUM\n", cnt, cnt);
-	w("store %%LLNUM %%cci.cmp.%d\n, %%LLNUM* @CMP\n", cnt);
+	w("store %%LLNUM %%cci.cmp.%d\n, %%LLNUM* %%CMP\n", cnt);
 	cnt++;
 }
 
@@ -852,7 +851,7 @@ void emit_subr(char *v, int parnm, uintptr_t n)
 	w("%s:\n", v);
 	if ( parnm ) {
 		static int cnt = 0;
-		w("%%subr.%d = load %%LLNUM* @A_REG\n", cnt);
+		w("%%subr.%d = load %%LLNUM* %%A_REG\n", cnt);
 		w("store %%LLNUM %%subr.%d, %%LLNUM* @PARNM\n", cnt);
 		cnt++;
 	}
@@ -861,7 +860,6 @@ void emit_subr(char *v, int parnm, uintptr_t n)
 
 void emit_exit(uintptr_t n, char *sub)
 {
-	fprintf(stderr, "%ld, %s\n", n, sub);
 	/* See comment before callgraph functions. */
 	w("br label %%lowl_exit_%s_%ld;\n", sub, n);
 }
@@ -889,7 +887,7 @@ void emit_gosub(char *v)
 		 * MDERCH: Get C value and call mdtest_putchar.
 		 */
 		static int cnt = 0;
-		w("%%mderch.%d = load i8* @C_REG;\n", cnt);
+		w("%%mderch.%d = load i8* %%C_REG;\n", cnt);
 		w("call void @mdtest_putchar(i8 %%mderch.%d)\n", cnt);
 		w("br label %%LOWL_LINE_%d\n", emitter_pc + 1);
 		cnt++;
@@ -936,7 +934,7 @@ void emit_go(char *lbl, intptr_t dist, char ex, char ctx)
 void emit_goeq(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int goeq_cnt = 0;
-	w("%%goeq_cmp.%d = load %%LLNUM* @CMP;\n", goeq_cnt);
+	w("%%goeq_cmp.%d = load %%LLNUM* %%CMP;\n", goeq_cnt);
 	w("%%goeq.%d = icmp eq %%LLNUM %%goeq_cmp.%d, 0;"
 	  "     GOEQ %s, %ld, %c, %c\n",
 	  goeq_cnt, goeq_cnt, lbl, dist, ex, ctx);
@@ -950,7 +948,7 @@ void emit_goeq(char *lbl, intptr_t dist, char ex, char ctx)
 void emit_gone(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int gone_cnt = 0;
-	w("%%gone_cmp.%d = load %%LLNUM* @CMP;\n", gone_cnt);
+	w("%%gone_cmp.%d = load %%LLNUM* %%CMP;\n", gone_cnt);
 	w("%%gone.%d = icmp ne %%LLNUM %%gone_cmp.%d, 0;"
 	  "     GONE %s, %ld, %c, %c\n",
 	  gone_cnt, gone_cnt, lbl, dist, ex, ctx);
@@ -964,7 +962,7 @@ void emit_gone(char *lbl, intptr_t dist, char ex, char ctx)
 void emit_goge(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int cnt = 0;
-	w("%%goge_cmp.%d = load %%LLNUM* @CMP;\n", cnt);
+	w("%%goge_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%goge.%d = icmp sge %%LLNUM %%goge_cmp.%d, 0;"
 	  "    GOGE %s, %ld, %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
@@ -979,7 +977,7 @@ void emit_gogr(char *lbl, intptr_t dist, char ex, char ctx)
 {
 
 	static int cnt = 0;
-	w("%%gogr_cmp.%d = load %%LLNUM* @CMP;\n", cnt);
+	w("%%gogr_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%gogr.%d = icmp sgt %%LLNUM %%gogr_cmp.%d, 0;"
 	  "    GOGR %s, %ld, %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
@@ -993,7 +991,7 @@ void emit_gogr(char *lbl, intptr_t dist, char ex, char ctx)
 void emit_gole(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int cnt = 0;
-	w("%%gole_cmp.%d = load %%LLNUM* @CMP;\n", cnt);
+	w("%%gole_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%gole.%d = icmp sle %%LLNUM %%gole_cmp.%d, 0;"
 	  "    GOLE %s, %ld, %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
@@ -1007,7 +1005,7 @@ void emit_gole(char *lbl, intptr_t dist, char ex, char ctx)
 void emit_golt(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int cnt = 0;
-	w("%%golt_cmp.%d = load %%LLNUM* @CMP;\n", cnt);
+	w("%%golt_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%golt.%d = icmp slt %%LLNUM %%golt_cmp.%d, 0;"
 	  "    GOLT %s, %ld, %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
@@ -1021,7 +1019,7 @@ void emit_golt(char *lbl, intptr_t dist, char ex, char ctx)
 void emit_gopc(char *lbl)
 {
 	static int cnt = 0;
-	w("%%gopc.c.%d = load i8* @C_REG\n", cnt);
+	w("%%gopc.c.%d = load i8* %%C_REG\n", cnt);
 	w("%%gopc.r.%d = call i8 @lowl_punctuation(i8 %%gopc.c.%d)\n", cnt, cnt);
 	w("%%gopc.b.%d = icmp ne i8 %%gopc.r.%d, 0\n", cnt, cnt);
 	w("br i1 %%gopc.b.%d, label %%%s, label %%gopc_false.%d\n", cnt, lbl, cnt);
@@ -1033,14 +1031,14 @@ void emit_gopc(char *lbl)
 void emit_gond(char *lbl)
 {
 	static int cnt = 0;
-	w("%%gond.c.%d = load i8* @C_REG\n", cnt);
+	w("%%gond.c.%d = load i8* %%C_REG\n", cnt);
 	w("%%gond.r.%d = call i8 @lowl_digit(i8 %%gond.c.%d)\n", cnt, cnt);
 	w("%%gond.b.%d = icmp eq i8 %%gond.r.%d, 0\n", cnt, cnt);
 	w("br i1 %%gond.b.%d, label %%%s, label %%gond_false.%d\n", cnt, lbl, cnt);
 	w("gond_false.%d:\n", cnt);
 	w("%%gond.n.%d = sub i8 %%gond.c.%d, 48\n", cnt, cnt);
 	w("%%gond.a.%d = zext i8 %%gond.n.%d to %%LLNUM\n", cnt, cnt);
-	w("store %%LLNUM %%gond.a.%d, %%LLNUM* @A_REG\n", cnt);
+	w("store %%LLNUM %%gond.a.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
 
@@ -1050,7 +1048,7 @@ void emit_fstk()
 	static int cnt = 0;
 	w("%%fstk.v.%d = load %%LLNUM* @FFPT\n", cnt);
 	w("%%fstk.p.%d = inttoptr %%LLNUM %%fstk.v.%d to %%LLNUM*\n", cnt, cnt);
-	w("%%fstk.a.%d = load %%LLNUM* @A_REG\n", cnt);
+	w("%%fstk.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("store %%LLNUM %%fstk.a.%d, %%LLNUM* %%fstk.p.%d\n", cnt, cnt);
 	w("%%fstk.nv.%d = add %%LLNUM %%fstk.v.%d, %d\n", cnt, cnt, LLVM_PTRSIZE/8);
 	w("store %%LLNUM %%fstk.nv.%d, %%LLNUM* @FFPT\n", cnt);
@@ -1064,7 +1062,7 @@ void emit_bstk()
 	w("%%bstk.cv.%d = load %%LLNUM* @LFPT\n", cnt);
 	w("%%bstk.nv.%d = sub %%LLNUM %%bstk.cv.%d, %ld\n", cnt, cnt, LLVM_PTRSIZE/8);
 	w("store %%LLNUM %%bstk.nv.%d, %%LLNUM* @LFPT\n", cnt);
-	w("%%bstk.a.%d = load %%LLNUM* @A_REG\n", cnt);
+	w("%%bstk.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%bstk.p.%d = inttoptr %%LLNUM %%bstk.nv.%d to %%LLNUM*\n", cnt, cnt);
 	w("store %%LLNUM %%bstk.a.%d, %%LLNUM* %%bstk.p.%d\n", cnt, cnt);
 
@@ -1077,7 +1075,7 @@ void emit_cfstk()
 	static int cnt = 0;
 	w("%%cfstk.v.%d = load %%LLNUM* @FFPT\n", cnt);
 	w("%%cfstk.p.%d = inttoptr %%LLNUM %%cfstk.v.%d to i8*\n", cnt, cnt);
-	w("%%cfstk.c.%d = load i8* @C_REG\n", cnt);
+	w("%%cfstk.c.%d = load i8* %%C_REG\n", cnt);
 	w("store i8 %%cfstk.c.%d, i8* %%cfstk.p.%d\n", cnt, cnt);
 	w("%%cfstk.np.%d = getelementptr i8* %%cfstk.p.%d, i32 1\n", cnt, cnt);
 	w("%%cfstk.nv.%d = ptrtoint i8* %%cfstk.np.%d to %%LLNUM\n", cnt, cnt);
@@ -1103,7 +1101,7 @@ void emit_fmove()
 	static int cnt = 0;
 	w("%%fmove.s.%d = load %%LLNUM* @SRCPT;\n", cnt);
 	w("%%fmove.d.%d = load %%LLNUM* @DSTPT;\n", cnt);
-	w("%%fmove.l.%d = load %%LLNUM* @A_REG;\n", cnt);
+	w("%%fmove.l.%d = load %%LLNUM* %%A_REG;\n", cnt);
 	w("%%fmove.src.%d = inttoptr %%LLNUM %%fmove.s.%d to i8*\n", cnt, cnt);
 	w("%%fmove.dst.%d = inttoptr %%LLNUM %%fmove.d.%d to i8*\n", cnt, cnt);
 	w("%%fmove.len.%d = trunc %%LLNUM %%fmove.l.%d to i32\n", cnt, cnt);
@@ -1118,7 +1116,7 @@ void emit_bmove()
 	static int cnt = 0;
 	w("%%bmove.s.%d = load %%LLNUM* @SRCPT;\n", cnt);
 	w("%%bmove.d.%d = load %%LLNUM* @DSTPT;\n", cnt);
-	w("%%bmove.l.%d = load %%LLNUM* @A_REG;\n", cnt);
+	w("%%bmove.l.%d = load %%LLNUM* %%A_REG;\n", cnt);
 	w("%%bmove.src.%d = inttoptr %%LLNUM %%bmove.s.%d to i8*\n", cnt, cnt);
 	w("%%bmove.dst.%d = inttoptr %%LLNUM %%bmove.d.%d to i8*\n", cnt, cnt);
 	w("call void @lowl_bmove(i8* %%bmove.dst.%d,"

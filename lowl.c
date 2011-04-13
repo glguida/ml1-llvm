@@ -6,6 +6,9 @@
 
 void LLOWL_main();
 
+/*
+ * Main function. Also, this is the most useless comment ever.
+ */
 int
 main()
 {
@@ -13,11 +16,15 @@ main()
 	LLOWL_main(LOWL_stack, LOWL_stack+4096);
 }
 
+/*
+ * Error handling support functions.
+ */
+
 void
 lowl_goadd_jmperror(void)
 {
 	fprintf(stderr, "GOADD fail: variable too big.\n"
-		"Please enlarge the switch instruction.\n");
+		"Please increase the switch instruction table.\n");
 	exit(-1);
 }
 
@@ -28,6 +35,10 @@ lowl_exit_jmperror(void)
 		"Please report.\n");
 	exit(-1);
 }
+
+/*
+ * LOWL instruction MD support.
+ */
 
 void
 lowl_puts(char *str)
@@ -90,4 +101,15 @@ lowl_poplink(void)
 		panic("stack underflow!");
 	}
 	return stack[stackp--];
+}
+
+/*
+ * MD routines support.
+ */
+
+/* Used by MDERCH. */
+void
+mdtest_putchar(uint8_t c)
+{
+	putchar(c);
 }
