@@ -3,20 +3,14 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include "llvm_config.h"
+#include <assert.h>
+#include "lowl.h"
 
 /*
  * Support functions
  */
 
-/* Print a string to the output file. */
-static void w(const char *s, ...)
-{
-	va_list ap;
-	va_start(ap, s);
-	vprintf(s, ap);
-	va_end(ap);
-}
+#define w(...) printf(__VA_ARGS__)
 
 /* Scream when you see a bug! */
 #define EMIT_PANIC(_s)				\
@@ -37,13 +31,14 @@ static void oom(void)
  * we need to realize when we start generating code so that
  * we can create one big function that contains all the code.
  *
- * By making the following assumptions,
+ * Based on the following assumptions,
  *
- * - LOWL programs will define data section in two separate
- *   stages;
- * - Data are defined before code.
- * - the first opcode will tagged by a label (usually it's
- * [BEGIN], but this is irrelevant to us);
+ * - LOWL programs will define data and code sections in two
+ *   separate stages,
+ * - Data are defined before code,
+ * - The first opcode will be tagged by a label (the LOWL 
+ *   manual specifies that this label will be begin, but
+ *   this is irrelevant to us),
  *
  * this emitter creates a function at the first call of
  * emit_label(), which gets called only when a label is
@@ -60,6 +55,68 @@ int function_created = 0;
  * emitting an instruction. */
 long emitter_pc = 0;
 
+#ifdef LOWL_ML1
+/*
+ * ML/I Hash Table support.
+ * The MD specification for ML/I requires to build an hash
+ * chain in the LOWL table. We do that in two phases:
+ * - First, we memorize in the tbl structure chain
+ *   number it must be stored into and the table offset.
+ * - Later, when dumping the table, we use hash_getlink()
+ *   function to retrieve the address of the last element
+ *   stored in the chain. We store this value in our link
+ *   and update register our offset as the last entry in
+ *   the chain.
+ */
+lowlint_t hash_links[ML1_HASHSZ];
+
+lowlint_t
+hash_getlink(unsigned chain)
+{
+	assert ( chain < ML1_HASHSZ );
+	return hash_links[chain];
+}
+
+void
+hash_savelink(unsigned chain, unsigned long offset)
+{
+	assert ( chain < ML1_HASHSZ );
+	hash_links[chain] = offset;
+}
+
+void
+hash_emitlink(unsigned chain)
+{
+	assert ( chain < ML1_HASHSZ );
+	lowlint_t link = hash_getlink(chain);
+	if ( link == 0 ) {
+		/* NULL pointer, don't add @LOWLTABLE offset. */
+		w("%%LLNUM 0");
+		return;
+	}
+	/* Get table offset of next entry from hash_getlink()
+	 * and calculate pointer. */
+	w("%%LLNUM ptrtoint(i8* getelementptr(%s, %%LLNUM %"PRIdLWI") to %%LLNUM)\n",
+	  "i8* bitcast (%lowltabty* @LOWLTAB to i8*)",
+	  hash_getlink(chain));
+}
+
+void
+hash_emitthash(void)
+{
+	int i;
+	/* Emit array of links. Since all the hash table have
+	 * been scanned, this will generate the head of the 
+	 * hash chains. */
+	w("[ %d x %%LLNUM ] [ ", ML1_HASHSZ);
+	for ( i = 0; i < ML1_HASHSZ; i++ ) {
+		if ( i != 0 ) w(", ");
+		hash_emitlink(i);
+	}
+	w(" ]");
+}
+#endif
+
 /* Table support:
  * LLVM assembler does not allow to specify a data segment
  * the way that machine-specific untyped assembler do.
@@ -67,7 +124,7 @@ long emitter_pc = 0;
  * In order to create the LOWL tables, this mapper's
  * approach is to scan for the whole file, collecting
  * information about the LOWL program table, and
- * dump it later in a form of packed structure.
+ * dump it later in form of a packed structure.
  *
  * Labels are stored as constants retaining the value of
  * the offset in this table. LAA X, C handles this special
@@ -79,6 +136,12 @@ struct tble {
 		char 		ch;
 		char 		*str;
 		uintptr_t	num;
+#ifdef LOWL_ML1
+		struct {
+			int 		chain;
+			unsigned long	off;
+		} h;
+#endif
 	} u;
 	struct tble *next;
 };
@@ -87,6 +150,10 @@ enum {
 	TBL_CH,
 	TBL_STR,
 	TBL_NUM,
+#ifdef LOWL_ML1
+	TBL_HASH,
+	TBL_THASH,
+#endif
 };
 
 struct tble *last, *tbl = NULL;
@@ -113,6 +180,14 @@ tbl_append(struct tble *ptr)
 	case TBL_NUM:
 		tbl_size += LLVM_PTRSIZE / 8;
 		break;
+#ifdef LOWL_ML1
+	case TBL_HASH:
+		tbl_size += LLVM_PTRSIZE / 8;
+		break;
+	case TBL_THASH:
+		tbl_size += ML1_HASHSZ * (LLVM_PTRSIZE/8);
+		break;
+#endif
 	default:
 		EMIT_PANIC("Wrong TBL Type!");
 	}
@@ -142,8 +217,16 @@ tbl_dump(void)
 			w("%%LLNUM");
 			break;
 		case TBL_STR:
-			w("[ %d x i8 ]", strlen(ptr->u.str));
+			w("[ %d x i8 ]", (int)strlen(ptr->u.str));
 			break;
+#ifdef LOWL_ML1
+		case TBL_HASH:
+			w("%%LLNUM");
+			break;
+		case TBL_THASH:
+			w("[ %d x %%LLNUM]", ML1_HASHSZ);
+			break;
+#endif
 		default:
 			EMIT_PANIC("Wrong TBL Type!");
 		}
@@ -162,12 +245,23 @@ tbl_dump(void)
 			w("i8 %d", ptr->u.ch);
 			break;
 		case TBL_NUM:
-			w("%%LLNUM %d", ptr->u.num);
+			w("%%LLNUM %ld", ptr->u.num);
 			break;
 		case TBL_STR:
-			w("[ %d x i8 ] c\"%s\"", strlen(ptr->u.str),
-						   ptr->u.str);
+			w("[ %d x i8 ] c\"%s\"", 
+			  (int)strlen(ptr->u.str), ptr->u.str);
 			break;
+#ifdef LOWL_ML1
+		case TBL_HASH:
+			hash_emitlink(ptr->u.h.chain);
+			/* Save current offset to be used by next entry in
+			 * the chain. */
+			hash_savelink(ptr->u.h.chain, ptr->u.h.off);
+			break;
+		case TBL_THASH:
+			hash_emitthash();
+			break;
+#endif
 		default:
 			EMIT_PANIC("Wrong TBL Type!");
 		}
@@ -208,7 +302,7 @@ str_dump()
 	while ( ptr != NULL )
 	{
 		w("@STR%d = internal constant [ %d x i8 ] c\"%s\\00\";\n",
-		  ptr->id, strlen(ptr->str)+1, ptr->str);
+		  ptr->id, (int)strlen(ptr->str)+1, ptr->str);
 		ptr = ptr->next;
 	}
 }
@@ -237,6 +331,7 @@ struct callgraphe {
 	char *symbol;
 	int exitnr;
 	int parnm;
+	int linkr;
 	struct cg_pclist {
 		long pc;
 		struct cg_pclist *next;
@@ -245,6 +340,7 @@ struct callgraphe {
 };
 struct callgraphe *callgraph = NULL;
 
+void
 callgraph_add(char *dst, long src_pc)
 {
 	struct cg_pclist *pcl;
@@ -279,7 +375,7 @@ callgraph_add(char *dst, long src_pc)
 }
 
 void
-callgraph_addsubr(char *subr, char parnm, char exitnr)
+callgraph_addsubr(char *subr, char parnm, char exitnr, int linkr)
 {
 	struct callgraphe *cge;
 	/* Search for Subr */
@@ -301,6 +397,7 @@ callgraph_addsubr(char *subr, char parnm, char exitnr)
 	}
 	cge->exitnr = exitnr;
 	cge->parnm = parnm;
+	cge->linkr = linkr;
 }
 
 void
@@ -313,12 +410,17 @@ callgraph_emit_exitbb(struct callgraphe *ptr)
 
 	for ( i = 1; i <= ptr->exitnr; i++ ) {
 		w("lowl_exit_%s_%d:\n", ptr->symbol, i);
-		w("%%exitaddr.%d = call i32 @lowl_poplink();\n", cnt);
-		w("switch i32 %%exitaddr.%d, label %%exit_jmperr [ ", cnt);
+		if ( ptr->linkr ) {
+			w("%%exitaddr.%d = load %%LLNUM* @LINKPT\n", cnt);
+		} else {
+			w("%%exitaddr.%d = call %%LLNUM @lowl_poplink();\n",
+			  cnt);
+		}
+		w("switch %%LLNUM %%exitaddr.%d, label %%exit_jmperr [ ", cnt);
 		pcl = ptr->pclist;
 		while ( pcl != NULL ) {
-			w(" i32 %lu, label %%LOWL_LINE_%d ",
-			    pcl->pc, pcl->pc + i);
+			w(" %%LLNUM %lu, label %%LOWL_LINE_%ld ",
+			   pcl->pc, pcl->pc + i);
 			pcl = pcl->next;
 		}
 		w("] \n");
@@ -333,16 +435,20 @@ callgraph_dump()
 	struct cg_pclist *pcl;
 	ptr = callgraph;
 	while ( ptr != NULL ) {
+		w("\n");
 		callgraph_emit_exitbb(ptr);
 		w("; %s is called from: ", ptr->symbol);
 		pcl = ptr->pclist;
 		while ( pcl != NULL ) {
-			w("%d,", pcl->pc);
+			w("%ld,", pcl->pc);
 			pcl = pcl->next;
 		}
 		w("\n");
-		w("; %s has %d exits and %s PARNM.\n", ptr->symbol, ptr->exitnr,
-			ptr->parnm ? "has" : "does not have");
+		if ( ptr->linkr )
+			w("; %s is a linkroutine.\n", ptr->symbol);
+		else
+			w("; %s has %d exits and %s PARNM.\n", ptr->symbol,
+			ptr->exitnr, ptr->parnm ? "has" : "does not have");
 		ptr = ptr->next;
 	}
 	w("\n");
@@ -366,20 +472,17 @@ emitter_init(void)
 	w("\n");
 	w("; External declarations.\n");
 	w("declare void @lowl_puts(i8*);\n");
-	w("declare void @lowl_pushlink(i32);\n");
-	w("declare i32 @lowl_poplink();\n");
+	w("declare void @lowl_pushlink(%%LLNUM);\n");
+	w("declare %%LLNUM @lowl_poplink();\n");
+	w("declare void @lowl_clearlink();\n");
 	w("declare void @lowl_goadd_jmperror();\n");
 	w("declare void @lowl_exit_jmperror();\n");
 	w("declare i8 @lowl_punctuation(i8);\n");
 	w("declare i8 @lowl_digit(i8);\n");
-	w("declare void @lowl_bmove(i8*,i8*,%%LLNUM)\n");
-	w("; LLVM intrinsics.\n");
-	w("declare void @llvm.memcpy.i32(i8*,i8*,i32,i32)\n");
-#ifdef LOWL_TEST
-	w("; MD specific functions for LOWL test.\n");
-	w("declare void @mdtest_putchar(i8)\n");
-#endif
-	w("\n\n");
+	w("declare void @lowl_bmove(%%LLNUM)\n");
+	w("declare void @lowl_fmove(%%LLNUM)\n");
+
+	emitter_md_init();
 }
 
 /* Finalization. */
@@ -397,6 +500,8 @@ emitter_fini(void)
 
 	/* Declare MESS strings. */
 	str_dump();
+
+	w("\n\n");
 }
 
 
@@ -423,7 +528,7 @@ void emit_label(char *lbl)
 		tbl_dump();
 		w("\n");
 		w("\n;\n; LOWL LLVM function\n");
-		w("define void @LLOWL_main(%%LLNUM %%ffpt, %%LLNUM %%lfpt)\n");
+		w("define void @lowl_main(%%LLNUM %%ffpt, %%LLNUM %%lfpt)\n");
 		w("{\n");
 		w("; Allocate LOWL registers on stack.\n");
 		w("%%A_REG = alloca %%LLNUM\n");
@@ -436,14 +541,14 @@ void emit_label(char *lbl)
 		w("store %%LLNUM %%lfpt, %%LLNUM* @LFPT\n");
 		w("br label %%BEGIN;   Jump to BEGIN\n");
 		w("\n");
-		/* Create fixed basic block needed by 
- 		 * the emitting functions. */
+		w(";\n; Support Basic Blocks\n;\n");
 		w("goadd_jmperr:\n");
 		w("call void @lowl_goadd_jmperror();\n");
 		w("unreachable\n");
 		w("exit_jmperr:\n");
 		w("call void @lowl_exit_jmperror();\n");
 		w("unreachable\n");
+		w("\n");
 		function_created = 1;
 	} else {
 		/* LLVM assembler can't fall through labels,
@@ -474,8 +579,8 @@ void emit_newpc(int stp)
 	 * code. */
 	emitter_pc++;
 	if ( !stp )
-		w("br label %%LOWL_LINE_%d", emitter_pc);
-	w("\nLOWL_LINE_%d:\n", emitter_pc);
+		w("br label %%LOWL_LINE_%ld", emitter_pc);
+	w("\nLOWL_LINE_%ld:\n", emitter_pc);
 }
 
 
@@ -541,6 +646,57 @@ void emit_str(char *str)
 }
 
 
+/* ML/I LOWL Table Items extensions. */
+void emit_hash(char *str)
+{
+#ifdef LOWL_ML1
+	struct tble *tble;
+	tble = malloc(sizeof(struct tble));
+	if ( tble == NULL )
+		oom();
+	tble->type = TBL_HASH;
+	tble->u.h.chain = ml1_hash(str, strlen(str));
+	tble->u.h.off = tbl_size;
+	tbl_append(tble);
+#else
+	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
+#endif
+
+}
+
+
+void emit_thash()
+{
+#ifdef LOWL_ML1
+	struct tble *tble;
+	tble = malloc(sizeof(struct tble));
+	if ( tble == NULL )
+		oom();
+	tble->type = TBL_THASH;
+	tbl_append(tble);
+#else
+	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
+#endif
+}
+
+
+void emit_rl(char *str, intptr_t nof)
+{
+#ifdef LOWL_ML1
+	/* Do not calculate the pointer, use the subsidiary expr instead. */
+	struct tble *tble;
+	tble = malloc(sizeof(struct tble));
+	if ( tble == NULL )
+		oom();
+	tble->type = TBL_NUM;
+	tble->u.num = nof;
+	tbl_append(tble);
+#else
+	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
+#endif
+}
+
+
 void emit_lav(char *v, char rx)
 {
 	static int lav_cnt = 0;
@@ -574,8 +730,8 @@ void emit_lcn(char cn)
 void emit_lam(intptr_t nof)
 {
 	static int lam_cnt = 0;
-	w("%%lam.%d = load %%LLNUM* %%B_REG;    LAM %d\n", lam_cnt, nof);
-	w("%%lam.2.%d = add %%LLNUM %%lam.%d, %d\n", lam_cnt, lam_cnt, nof);
+	w("%%lam.%d = load %%LLNUM* %%B_REG;    LAM %ld\n", lam_cnt, nof);
+	w("%%lam.2.%d = add %%LLNUM %%lam.%d, %ld\n", lam_cnt, lam_cnt, nof);
 	w("%%lam.3.%d = inttoptr %%LLNUM %%lam.2.%d to %%LLNUM*\n",
 	  lam_cnt, lam_cnt);
 	w("%%lam.4.%d = load %%LLNUM* %%lam.3.%d\n", lam_cnt, lam_cnt);
@@ -589,7 +745,7 @@ void emit_lcm(intptr_t nof)
 {
 	static int cnt = 0;
 	w("%%lcm.c.%d = load %%LLNUM* %%B_REG\n", cnt);
-	w("%%lcm.n.%d = add %%LLNUM %%lcm.c.%d, %d\n", cnt, cnt, nof);
+	w("%%lcm.n.%d = add %%LLNUM %%lcm.c.%d, %ld\n", cnt, cnt, nof);
 	w("%%lcm.p.%d = inttoptr %%LLNUM %%lcm.n.%d to i8*\n", cnt, cnt);
 	w("%%lcm.r.%d = load i8* %%lcm.p.%d\n", cnt, cnt);
 	w("store i8 %%lcm.r.%d\n, i8* %%C_REG\n", cnt);
@@ -629,8 +785,10 @@ void emit_laa(char *v, char dc)
 		  cnt, cnt);
 	} else {
 		w("%%laa.o.%d = load %%LLNUM* @%s\n", cnt, v);
-		w("%%laa.t.%d = ptrtoint %%lowltabty* @LOWLTAB to %%LLNUM\n", cnt);
-		w("%%laa.v.%d = add %%LLNUM %%laa.t.%d, %%laa.o.%d\n", cnt, cnt, cnt);
+		w("%%laa.t.%d = ptrtoint %%lowltabty* @LOWLTAB to %%LLNUM\n",
+		  cnt);
+		w("%%laa.v.%d = add %%LLNUM %%laa.t.%d, %%laa.o.%d\n",
+		  cnt, cnt, cnt);
 	}
 	w("store %%LLNUM %%laa.v.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
@@ -690,8 +848,8 @@ void emit_abv(char *v)
 void emit_aal(intptr_t nof)
 {
 	static cnt = 0;
-	w("%%aal.%d = load %%LLNUM* %%A_REG;    AAL %d\n", cnt, nof);
-	w("%%aal.2.%d = add %%LLNUM %%aal.%d, %d\n", cnt, cnt, nof);
+	w("%%aal.%d = load %%LLNUM* %%A_REG;    AAL %ld\n", cnt, nof);
+	w("%%aal.2.%d = add %%LLNUM %%aal.%d, %ld\n", cnt, cnt, nof);
 	w("store %%LLNUM %%aal.2.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
@@ -724,8 +882,8 @@ void emit_sbv(char *v)
 void emit_sal(intptr_t nof)
 {
 	static int sal_cnt = 0;
-	w("%%sal.%d = load %%LLNUM* %%A_REG;    SAL %d\n", sal_cnt, nof);
-	w("%%sal.3.%d = sub %%LLNUM %%sal.%d, %d\n",
+	w("%%sal.%d = load %%LLNUM* %%A_REG;    SAL %ld\n", sal_cnt, nof);
+	w("%%sal.3.%d = sub %%LLNUM %%sal.%d, %ld\n",
 	  sal_cnt, sal_cnt, nof);
 	w("store %%LLNUM %%sal.3.%d, %%LLNUM* %%A_REG\n", sal_cnt);
 	sal_cnt++;
@@ -736,7 +894,7 @@ void emit_sbl(intptr_t nof)
 {
 	static cnt = 0;
 	w("%%sbl.b.%d = load %%LLNUM* %%B_REG\n", cnt);
-	w("%%sbl.r.%d = sub %%LLNUM %%sbl.b.%d, %d\n", cnt, cnt, nof);
+	w("%%sbl.r.%d = sub %%LLNUM %%sbl.b.%d, %ld\n", cnt, cnt, nof);
 	w("store %%LLNUM %%sbl.r.%d, %%LLNUM* %%B_REG\n", cnt);
 	cnt++;
 }
@@ -780,6 +938,21 @@ void emit_andl(uintptr_t n)
 	w("%%andl.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%andl.r.%d = and %%LLNUM %lu, %%andl.a.%d\n", cnt, n, cnt);
 	w("store %%LLNUM %%andl.r.%d, %%LLNUM* %%A_REG\n", cnt);
+	cnt++;
+}
+
+
+void emit_orl(uintptr_t n)
+{
+#ifdef LOWL_ML1
+	static int cnt = 0;
+	w("%%orl.a.%d = load %%LLNUM* %%A_REG\n", cnt);
+	w("%%orl.r.%d = or %%LLNUM %lu, %%orl.a.%d\n", cnt, n, cnt);
+	w("store %%LLNUM %%orl.r.%d, %%LLNUM* %%A_REG\n", cnt);
+	cnt++;
+#else
+	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
+#endif
 }
 
 
@@ -846,7 +1019,7 @@ void emit_cci(char *v)
 
 void emit_subr(char *v, int parnm, uintptr_t n)
 {
-	callgraph_addsubr(v, parnm, n);
+	callgraph_addsubr(v, parnm, n, 0);
 	w("br label %%%s\n", v); 
 	w("%s:\n", v);
 	if ( parnm ) {
@@ -865,39 +1038,67 @@ void emit_exit(uintptr_t n, char *sub)
 }
 
 
+void emit_linkr(char *v)
+{
+#ifdef LOWL_ML1
+	if ( strcmp(v, "STKARG") ) {
+		/* STKARG should be the only linkroutine
+		 * supported needed by the ML/I MD module. */
+		EMIT_PANIC("The only linkroutine should be STKARG!");
+	}
+
+	callgraph_addsubr(v, 0, 1, 1);
+	w("br label %%%s\n", v);
+	w("%s:\n", v);
+#else
+	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
+#endif
+}
+
+
+void emit_linkb()
+{
+#ifdef LOWL_ML1
+	emit_exit(1, "STKARG");
+#else
+	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
+#endif
+}
+
+
 void emit_gosub(char *v)
 {
+	int linkroutine = 0;
+
 	/*
 	 * MD Functions.
 	 * 
 	 * We intercept MD functions call here, to avoid 
 	 * following LOWL routines calling rules.
-	 * We just need to be careful, if we return, to
-	 * branch to the next instruction label.
+
 	 */
-#ifdef LOWL_TEST
-	if ( !strcmp(v, "MDQUIT") ) {
-		/*
-		 * MDQUIT: Just exit the LOWL_main function.
-		 */
-		w("ret void\n");
+	if ( md_gosub(v) )
 		return;
-	} else if ( !strcmp(v, "MDERCH") ) {
-		/*
-		 * MDERCH: Get C value and call mdtest_putchar.
-		 */
-		static int cnt = 0;
-		w("%%mderch.%d = load i8* %%C_REG;\n", cnt);
-		w("call void @mdtest_putchar(i8 %%mderch.%d)\n", cnt);
-		w("br label %%LOWL_LINE_%d\n", emitter_pc + 1);
-		cnt++;
-		return;
+
+#ifdef LOWL_ML1
+	/* Linkroutine.Do not save on stack. */
+	if ( !strcmp(v, "STKARG") ) {
+		linkroutine = 1;	
 	}
 #endif
 
+	/*
+ 	 * MI routines.
+	 */
+
 	callgraph_add(v, emitter_pc);
-	/* Save current next PC to stack. */
-	w("call void @lowl_pushlink(i32 %ld)\n", emitter_pc);
+	if ( linkroutine ) {
+		/* Save next PC to LINKPT. */
+		w("store %%LLNUM %ld, %%LLNUM* @LINKPT\n", emitter_pc);
+	} else {
+		/* Save next PC to stack. */
+		w("call void @lowl_pushlink(%%LLNUM %ld)\n", emitter_pc);
+	}
 	/* Branch to subroutine label */
 	w("br label %%%s\n;      GOSUB %s\n", v, v);
 }
@@ -905,7 +1106,7 @@ void emit_gosub(char *v)
 
 void emit_goadd(char *v)
 {
-#define SWSTM(_x) w("%%LLNUM " #_x ", label %%LOWL_LINE_%d ", \
+#define SWSTM(_x) w("%%LLNUM " #_x ", label %%LOWL_LINE_%ld ", \
 			 emitter_pc + _x + 1)
 	static int cnt = 0;
 	w("%%goadd.%d = load %%LLNUM* @%s;      GOADD %s\n", cnt, v, v);
@@ -914,19 +1115,21 @@ void emit_goadd(char *v)
 	SWSTM(6); SWSTM(7); SWSTM(8); SWSTM(9); SWSTM(10); SWSTM(11);
 	SWSTM(12); SWSTM(13); SWSTM(14); SWSTM(15); SWSTM(16);
 	w("] \n");
+	cnt++;
 #undef SWSTM
 }
 
 
 void emit_css()
 {
-	/* RESET STACK: we are back to the main logic */
+	w("call void @lowl_clearlink()\n");
+	w("br label %%LOWL_LINE_%ld\n", emitter_pc + 1);
 }
 
 
 void emit_go(char *lbl, intptr_t dist, char ex, char ctx)
 {
-	w("br label %%%s;    GO %s, %d, %c, %c\n",
+	w("br label %%%s;    GO %s, %ld, %c, %c\n",
 	  lbl, lbl, dist, ex, ctx);
 }
 
@@ -1020,9 +1223,11 @@ void emit_gopc(char *lbl)
 {
 	static int cnt = 0;
 	w("%%gopc.c.%d = load i8* %%C_REG\n", cnt);
-	w("%%gopc.r.%d = call i8 @lowl_punctuation(i8 %%gopc.c.%d)\n", cnt, cnt);
+	w("%%gopc.r.%d = call i8 @lowl_punctuation(i8 %%gopc.c.%d)\n",
+	  cnt, cnt);
 	w("%%gopc.b.%d = icmp ne i8 %%gopc.r.%d, 0\n", cnt, cnt);
-	w("br i1 %%gopc.b.%d, label %%%s, label %%gopc_false.%d\n", cnt, lbl, cnt);
+	w("br i1 %%gopc.b.%d, label %%%s, label %%gopc_false.%d\n",
+	  cnt, lbl, cnt);
 	w("gopc_false.%d:\n", cnt);
 	cnt++;
 }
@@ -1034,7 +1239,8 @@ void emit_gond(char *lbl)
 	w("%%gond.c.%d = load i8* %%C_REG\n", cnt);
 	w("%%gond.r.%d = call i8 @lowl_digit(i8 %%gond.c.%d)\n", cnt, cnt);
 	w("%%gond.b.%d = icmp eq i8 %%gond.r.%d, 0\n", cnt, cnt);
-	w("br i1 %%gond.b.%d, label %%%s, label %%gond_false.%d\n", cnt, lbl, cnt);
+	w("br i1 %%gond.b.%d, label %%%s, label %%gond_false.%d\n",
+	  cnt, lbl, cnt);
 	w("gond_false.%d:\n", cnt);
 	w("%%gond.n.%d = sub i8 %%gond.c.%d, 48\n", cnt, cnt);
 	w("%%gond.a.%d = zext i8 %%gond.n.%d to %%LLNUM\n", cnt, cnt);
@@ -1050,7 +1256,8 @@ void emit_fstk()
 	w("%%fstk.p.%d = inttoptr %%LLNUM %%fstk.v.%d to %%LLNUM*\n", cnt, cnt);
 	w("%%fstk.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("store %%LLNUM %%fstk.a.%d, %%LLNUM* %%fstk.p.%d\n", cnt, cnt);
-	w("%%fstk.nv.%d = add %%LLNUM %%fstk.v.%d, %d\n", cnt, cnt, LLVM_PTRSIZE/8);
+	w("%%fstk.nv.%d = add %%LLNUM %%fstk.v.%d, %d\n",
+	  cnt, cnt, LLVM_PTRSIZE/8);
 	w("store %%LLNUM %%fstk.nv.%d, %%LLNUM* @FFPT\n", cnt);
 	cnt++;
 }
@@ -1060,10 +1267,12 @@ void emit_bstk()
 {
 	static int cnt = 0;
 	w("%%bstk.cv.%d = load %%LLNUM* @LFPT\n", cnt);
-	w("%%bstk.nv.%d = sub %%LLNUM %%bstk.cv.%d, %ld\n", cnt, cnt, LLVM_PTRSIZE/8);
+	w("%%bstk.nv.%d = sub %%LLNUM %%bstk.cv.%d, %d\n",
+	  cnt, cnt, LLVM_PTRSIZE/8);
 	w("store %%LLNUM %%bstk.nv.%d, %%LLNUM* @LFPT\n", cnt);
 	w("%%bstk.a.%d = load %%LLNUM* %%A_REG\n", cnt);
-	w("%%bstk.p.%d = inttoptr %%LLNUM %%bstk.nv.%d to %%LLNUM*\n", cnt, cnt);
+	w("%%bstk.p.%d = inttoptr %%LLNUM %%bstk.nv.%d to %%LLNUM*\n",
+	  cnt, cnt);
 	w("store %%LLNUM %%bstk.a.%d, %%LLNUM* %%bstk.p.%d\n", cnt, cnt);
 
 	cnt++;
@@ -1088,25 +1297,23 @@ void emit_unstk(char *v)
 {
 	static int cnt = 0;
 	w("%%unstk.v.%d = load %%LLNUM* @LFPT\n", cnt);
-	w("%%unstk.p.%d = inttoptr %%LLNUM %%unstk.v.%d to %%LLNUM*\n", cnt, cnt);
+	w("%%unstk.p.%d = inttoptr %%LLNUM %%unstk.v.%d to %%LLNUM*\n",
+	  cnt, cnt);
 	w("%%unstk.val.%d = load %%LLNUM* %%unstk.p.%d\n", cnt, cnt);
 	w("store %%LLNUM %%unstk.val.%d, %%LLNUM* @%s\n", cnt, v);
-	w("%%unstk.nv.%d = add %%LLNUM %%unstk.v.%d, %d\n", cnt, cnt, LLVM_PTRSIZE/8);
+	w("%%unstk.nv.%d = add %%LLNUM %%unstk.v.%d, %d\n",
+	  cnt, cnt, LLVM_PTRSIZE/8);
 	w("store %%LLNUM %%unstk.nv.%d, %%LLNUM* @LFPT\n", cnt);
 	cnt++;
 }
 
 void emit_fmove()
 {
+	/* We could use LLVM's memcpy intrinsic, but the name
+	 * seems to change from version to version. */
 	static int cnt = 0;
-	w("%%fmove.s.%d = load %%LLNUM* @SRCPT;\n", cnt);
-	w("%%fmove.d.%d = load %%LLNUM* @DSTPT;\n", cnt);
-	w("%%fmove.l.%d = load %%LLNUM* %%A_REG;\n", cnt);
-	w("%%fmove.src.%d = inttoptr %%LLNUM %%fmove.s.%d to i8*\n", cnt, cnt);
-	w("%%fmove.dst.%d = inttoptr %%LLNUM %%fmove.d.%d to i8*\n", cnt, cnt);
-	w("%%fmove.len.%d = trunc %%LLNUM %%fmove.l.%d to i32\n", cnt, cnt);
-	w("call void @llvm.memcpy.i32(i8* %%fmove.dst.%d,"
-	 "i8* %%fmove.src.%d, i32 %%fmove.len.%d, i32 0)\n", cnt, cnt, cnt);
+	w("%%fmove.len.%d = load %%LLNUM* %%A_REG\n", cnt);
+	w("call void @lowl_fmove(%%LLNUM %%fmove.len.%d)\n", cnt);
 	cnt++;
 }
 
@@ -1114,13 +1321,8 @@ void emit_fmove()
 void emit_bmove()
 {
 	static int cnt = 0;
-	w("%%bmove.s.%d = load %%LLNUM* @SRCPT;\n", cnt);
-	w("%%bmove.d.%d = load %%LLNUM* @DSTPT;\n", cnt);
-	w("%%bmove.l.%d = load %%LLNUM* %%A_REG;\n", cnt);
-	w("%%bmove.src.%d = inttoptr %%LLNUM %%bmove.s.%d to i8*\n", cnt, cnt);
-	w("%%bmove.dst.%d = inttoptr %%LLNUM %%bmove.d.%d to i8*\n", cnt, cnt);
-	w("call void @lowl_bmove(i8* %%bmove.dst.%d,"
-	"i8* %%bmove.src.%d,%%LLNUM %%bmove.l.%d)\n", cnt, cnt, cnt);
+	w("%%bmove.len.%d = load %%LLNUM* %%A_REG;\n", cnt);
+	w("call void @lowl_bmove(%%LLNUM %%bmove.len.%d)\n", cnt);
 	cnt++;
 }
 
@@ -1133,7 +1335,7 @@ void emit_mess(char *mess)
 	strid = str_declare(mess);
 	/* Get a pointer to the string with proper cast. */
 	w("%%putsptr.%d = getelementptr [ %d x i8 ]* @STR%d, i64 0, i64 0\n",
-	  strid, strlen(mess) + 1, strid);
+	  strid, (int)strlen(mess) + 1, strid);
 	/* And call the function. */
 	w("call void @lowl_puts(i8* %%putsptr.%d)\n", strid);
 }

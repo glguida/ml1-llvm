@@ -87,6 +87,18 @@ void yyerror(char *);
 "LNM"		{	return LNM;	}
 "LICH"		{	return LICH;	}
 
+ /* ML/I Extensions. */
+"HASH"		{	return HASH;	}
+"THASH"		{	return THASH;	}
+"RL"		{	return RL;	}
+"WTHS"		{	return WTHS;	}
+"STOPCD"	{	return STOPCD;	}
+"SLREP"		{	return SLREP;	}
+"LHV"		{	return LHV;	}
+"LINKR"		{	return LINKR;	}
+"LINKB"		{	return LINKB;	}
+"ORL"		{	return ORL;	}
+
 "'"[^'\n]+"'"	{
 			/* Remove lead and tail quote. */
 			yylval.str = strdup(yytext + 1);

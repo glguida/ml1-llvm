@@ -2,24 +2,44 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-#include "config.h"
+#include "lowl.h"
 
-void LLOWL_main();
+void lowl_main();
+
+/* Standard stack size. */
+#define LOWL_STACKSZ	10*1024
+char *lowl_stack;
+
 
 /*
- * Main function. Also, this is the most useless comment ever.
+ * LOWL runtime init/fini.
  */
-int
-main()
+void
+lowl_runtime_init(void)
 {
-	char *LOWL_stack = malloc(4096);
-	LLOWL_main(LOWL_stack, LOWL_stack+4096);
+	lowl_stack = malloc(LOWL_STACKSZ);
 }
+
+void
+lowl_runtime_fini(void)
+{
+	free(lowl_stack);
+}
+
+
+/*
+ * Execute the LOWL program.
+ */
+void
+lowl_run(void)
+{
+	lowl_main(lowl_stack, lowl_stack+(LOWL_STACKSZ));
+}
+
 
 /*
  * Error handling support functions.
  */
-
 void
 lowl_goadd_jmperror(void)
 {
@@ -36,9 +56,13 @@ lowl_exit_jmperror(void)
 	exit(-1);
 }
 
+
 /*
- * LOWL instruction MD support.
+ * LOWL instructions support functions.
  */
+
+extern lowlint_t LOWLVAR(SRCPT);
+extern lowlint_t LOWLVAR(DSTPT);
 
 void
 lowl_puts(char *str)
@@ -46,9 +70,9 @@ lowl_puts(char *str)
 	char *ptr = str;
 	while ( *ptr != '\0' ) {
 		if ( *ptr == '$' )
-			putchar('\n');
+			putc('\n', stderr);
 		else
-			putchar(*ptr);
+			putc(*ptr, stderr);
 		ptr++;
 	}
 }
@@ -68,33 +92,41 @@ lowl_punctuation(uint8_t c)
 }
 
 void
-lowl_bmove(uint8_t *dst, uint8_t *src, lowlint_t len)
+lowl_bmove(lowlint_t len)
 {
 	int i;
+	char *src = (char *)(uintptr_t)LOWLVAR(SRCPT);
+	char *dst = (char *)(uintptr_t)LOWLVAR(DSTPT);
 	for ( i = (int)len - 1; i >= 0; i-- )
 		*(dst + i) = *(src + i);
 }
 
+void
+lowl_fmove(lowlint_t len)
+{
+	char *src = (char *)(uintptr_t)LOWLVAR(SRCPT);
+	char *dst = (char *)(uintptr_t)LOWLVAR(DSTPT);
+	memcpy(dst, src, len);
+}
+
 
 /*
- * SUBROUTINE STACK.
+ * Subroutine Stack.
  */
-/* The LLOWL manual says that a dozen would be sufficient.
- * Let's be generous. */
-#define STACKSZ 24
+#define STACKSZ 24	/* Lowl manual says 'a dozen' are sufficient. */
 
-uint32_t stack[STACKSZ];
+lowlint_t stack[STACKSZ];
 int stackp = -1;
 
 void
-lowl_pushlink(uint32_t addr)
+lowl_pushlink(lowlint_t addr)
 {
 	if ( stackp == STACKSZ - 1 )
 		panic("Stack overflow! Consider resizing.");
 	stack[++stackp] = addr;
 }
 
-uint32_t
+lowlint_t
 lowl_poplink(void)
 {
 	if ( stackp < 0 ) {
@@ -103,13 +135,9 @@ lowl_poplink(void)
 	return stack[stackp--];
 }
 
-/*
- * MD routines support.
- */
-
-/* Used by MDERCH. */
 void
-mdtest_putchar(uint8_t c)
+lowl_clearlink(void)
 {
-	putchar(c);
+	stackp = -1;
 }
+

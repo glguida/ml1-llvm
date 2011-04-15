@@ -11,9 +11,13 @@ List of LOWL system variables:
 - FFPT, LFPT: Forward and Backward stack pointers.
 - SRCPT, DSTPT: Source and Destination pointers for FMOVE and MOVE.
 
-Errors in LOWLMAP:
+Errors in Lowl Documentation.
 
+LOWL Map Manual.
 Pg. 24: CON N-OF doesn't list CON -N-OF.
+
+LOWL Supplement 3: ML/I
+Pg. 7: MDOP has 2 exits: 1 for overflow and 2 for normal op.
 
 MAJOR ISSUES IN MAPPING TO LLVM:
 

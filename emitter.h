@@ -1,5 +1,18 @@
+extern long emitter_pc;
+
 void emitter_init(void);
 void emitter_fini(void);
+void emitter_md_init(void);
+void emitter_md_fini(void);
+
+#ifdef LOWL_ML1
+void emit_hash();
+void emit_thash();
+void emit_rl();
+void emit_linkr();
+void emit_linkb();
+void emit_orl();
+#endif
 
 void emit_newpc();
 void emit_eol();

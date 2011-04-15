@@ -1,6 +1,8 @@
 #ifndef _LLVM_CONFIG_H
 #define _LLVM_CONFIG_H
+
 #include <stdint.h>
+
 /*
  * LLVM pointer aliasing rules prevent us from using  GEP to
  * transform pointers to integers, do some operations with
@@ -16,7 +18,20 @@
  * 64-bit (8 bytes) seems to be well supported by all LLVM
  * backends.
  */
-#define LLVM_PTRSIZE	64
-typedef uint64_t lowlint_t;
+#define LLVM_PTRSIZE	LOWL_REGSIZE
 
+#if LOWL_REGSIZE == 64
+#define PRIdLWI 	PRId64
+typedef int64_t lowlint_t;
+#elif LOWL_REGSIZE == 32
+#define PRIdLWI		PRId32
+typedef int32_t lowlint_t;
 #endif
+
+/*
+ * Buffer size for lowlint_t itoa.
+ * This must be >= Log10(max number) + 1 (sign) + 1 (null)
+ */
+#define LOWLINT_ITOA_LEN 24	/* Let's be overprotective. */
+
+#endif /* _LLVM_CONFIG_H */

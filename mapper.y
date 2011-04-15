@@ -4,8 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "config.h"
-#include "emit.h"
+#include "lowl.h"
+#include "emitter.h"
 
 /* Checks for optional characters. */
 #define _CHECK_CHAR(_str)				\
@@ -96,11 +96,15 @@ uintptr_t 	num;
 %token PRGST PRGEN
 %token ALIGN
 
-%token LCH LNM LICH 
+%token LCH LNM LICH LHV
 %token OF 
 %token ',' '+' '-' '*' '(' ')' 
 %token NLREP SPREP TABREP QUTREP
 %token EOL 
+
+/* ML/I extensions tokens. */
+%token HASH THASH RL WTHS STOPCD SLREP LINKR LINKB ORL
+%type <chr> ml1_charname
 
 %type <str> v
 %type <num> nof distance signnum of_macro expr parnm
@@ -144,6 +148,7 @@ table_statement:
 	CON nof		{ emit_con($2); }
 	| NCH charname		{ emit_nch($2); }
 	| STR STRING		{ emit_str($2); }
+	| ml1_table_statement
 	;
 
 code_statement:
@@ -201,6 +206,7 @@ code_statement:
 	| PRGST STRING		{ emit_prgst($2); }
 	| PRGEN			{ emit_prgen(); }
 	| ALIGN			{ emit_align(); }
+	| ml1_code_statement
 	;
 
 charname:
@@ -208,6 +214,7 @@ charname:
 	| SPREP			{ $$ = ' '; }
 	| TABREP		{ $$ = '\t'; }
 	| QUTREP		{ $$ = '"'; }
+	| ml1_charname		{ $$ = $1; }
 	;
 
 v:	SYMBOL			{ $$ = $1; }
@@ -241,6 +248,7 @@ expr:
 	| LCH			{ $$ = LCH_VAL; }
 	| LNM			{ $$ = LNM_VAL; }
 	| LICH			{ $$ = LICH_VAL; }
+	| LHV			{ $$ = LHV_VAL; } /* ML/I */
 	| expr '+' expr		{ $$ = $1 + $3; }
 	| expr '-' expr		{ $$ = $1 - $3; }
 	| expr '*' expr		{ $$ = $1 * $3; }
@@ -286,6 +294,24 @@ parnm:
 						$$ = 0;
 					}
 				}
+	;
+
+ml1_table_statement:
+	HASH STRING		{ emit_hash($2); } 	/* ML/I */
+	| THASH			{ emit_thash();	}	/* ML/I */
+	| RL SYMBOL ',' nof 	{ emit_rl($2,$4); }	/* ML/I */
+	| WTHS			{ emit_con(WTHS_VAL); } /* ML/I */
+	;
+
+ml1_code_statement:
+	LINKR SYMBOL		{ emit_linkr($2); }	/* ML/I */
+	| LINKB			{ emit_linkb(); }	/* ML/I */
+	| ORL nof		{ emit_orl($2); }	/* ML/I */
+	;
+
+ml1_charname:
+	STOPCD			{ $$ = 0; } 	/* ML/I */
+	| SLREP			{ $$ = 255; }	/* ML/I */
 	;
 %%
 
