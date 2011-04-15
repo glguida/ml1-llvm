@@ -14,7 +14,7 @@ ml1: runtime.c ml1.c ml1_hash.c ml1.llvm.s
 	$(CC) $(CPPFLAGS) $(CFLAGS) runtime.c ml1.c ml1_hash.c  ml1.llvm.s -o $@
 
 %.llvm.s: %.bc
-	llc $(LLC_OPTS) -f $^ -o $@
+	llc $(LLC_OPTS) $^ -o $@
 
 %.bc: %.llvm
 	llvm-as $^ -o - | opt -std-compile-opts -o $@

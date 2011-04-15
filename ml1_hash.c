@@ -8,9 +8,8 @@
  */
 
 /* A little fun in hashing.
- * A Pearson hash table that maps the static entries in the
- * ML/I hash table in the order they are defined in the 
- * source, from 1 to N. */
+ * A Pearson hash table that maps the static entries in the ML/I
+ * hash table in the order defined in the source, from 1 to N. */
 static uint8_t t[256] = {
 	173, 192, 110,  25,  97, 174, 132, 119, 
 	138, 170, 125, 118,  27, 233, 140,  51, 
