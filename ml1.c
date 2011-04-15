@@ -111,6 +111,7 @@ mdop()
 	switch ( LOWLVAR(OPSW) ) {
 	case 1:	/* Multiplication. */
 		meval = op1 * meval;
+		LOWLVAR(MEVAL) = meval;
 		return 1;
 		break;
 	default: /* Division. */
