@@ -1,16 +1,14 @@
 # This variable defines the location of ML/I LOWL sources.
 ML1SRC?= ml1.lwl
 
-# This variable defines the bisize of LOWL register.
+# The LOWL_REGSIZE variable controls the bisize of LOWL register.
 #
-# It should be big enough to include a pointer, and the default
-# setting (64 bit) will work also in 32 bit machines.
-# If you are on a 32 bit architecture and want to save some
-# memory, add argument LOWL_REGSIZE=32 to 'make'.
-# See comment in llvm_config.h if interested in LLVM internals.
-LOWL_REGSIZE?= 64
-
+# The default is automatically set to the size of the pointer in current
+# machine. To override this behaviour, you can set the environment variable
+# LOWL_REGSIZE to 32 or 64 to specify the register size.
+ifdef LOWL_REGSIZE
 CPPFLAGS+= -DLOWL_REGSIZE=$(LOWL_REGSIZE)
+endif
 
 ml1: runtime.c ml1.c ml1_hash.c ml1.llvm.s
 	$(CC) $(CPPFLAGS) $(CFLAGS) runtime.c ml1.c ml1_hash.c  ml1.llvm.s -o $@

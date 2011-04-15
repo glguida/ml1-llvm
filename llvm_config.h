@@ -10,15 +10,23 @@
  * This unfortunately means that we need to use inttoptr and
  * ptrtoint, which require an explicit integer size.
  *
- * One option would be to select the size as sizeof(uintptr_t),
- * but this would defeat the purpose of keeping the generated
- * LLVM assembler file portable.
+ * One option would be to select the pointer size to use to
+ * a safe maximum (64-bit), hoping that the LLVM target will
+ * be able to support those operations.
  *
- * This define selects the pointer size to use. At the moment,
- * 64-bit (8 bytes) seems to be well supported by all LLVM
- * backends.
+ * What we do here instead is to set the pointer size as
+ * sizeof(uintptr_t), even if it makes the LLVM assembler
+ * generated architecture specific. Optionally, you can 
+ * set the value to 32 or 64 bit at compilation time. See
+ * comment in Makefile.
  */
+#ifdef LOWL_REGSIZE
 #define LLVM_PTRSIZE	LOWL_REGSIZE
+#else
+#define LLVM_PTRSIZE	((int)sizeof(uintptr_t)*8)
+#endif
+
+#ifdef LOWL_REGSIZE
 
 #if LOWL_REGSIZE == 64
 #define PRIdLWI 	PRId64
@@ -26,7 +34,17 @@ typedef int64_t lowlint_t;
 #elif LOWL_REGSIZE == 32
 #define PRIdLWI		PRId32
 typedef int32_t lowlint_t;
-#endif
+#else
+#error "LOWL_REGSIZE set to an unsupported value (32 or 64)
+#endif /* LOWL_REGSIZE */
+
+#else /* !LOWL_REGSIZE */
+
+#define PRIdLWI		PRIdPTR
+typedef intptr_t lowlint_t;
+
+#endif /* !LOWL_REGSIZE */
+
 
 /*
  * Buffer size for lowlint_t itoa.
