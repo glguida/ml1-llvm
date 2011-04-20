@@ -21,13 +21,15 @@ The MD part instead consists of LOWL extensions and runtime routines used
 for I/O and actual starting of the program.
 
 This software contains a LOWL to LLVM translator (including ML/I extensions)
-and runtime routines for running ML/I (specs for ML/I MD at [3].
+and runtime routines for running ML/I (specs for ML/I MD at [3]).
 
 
 Prerequisites for compiling ML/I
 
 0. LLVM must be installed in your system. Specifically, you will need 'llc',
    'opt' and 'llvm-as' to be accessible from your PATH.
+1. 'lex' and 'yacc' (or more commonly, bison and flex) should be installed 
+   in your system.
 
 
 How to compile ML/I.
@@ -39,6 +41,9 @@ How to compile ML/I.
 If everything goes fine, you should have a 'ml1' executable, which is
 a simple ML/I macro processor that gets input from stdin and write output
 to stdout. Errors and other messages are sent to stderr.
+
+
+Notes.
 
 [1] http://www.ml1.org.uk, the ML/I Macro Processor site.
 [2] http://www.ml1.org.uk/htmldoc/lowlmap.html
