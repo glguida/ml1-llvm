@@ -1,0 +1,48 @@
+ML/I-LLVM, a recompiler for LOWL sources of ML/I to LLVM.
+
+
+Preliminary note.
+
+This software does NOT include ML/I sources. LOWL ML/I sources can be
+downloaded from the ML/I Macro Processor site[1].
+
+
+Introduction.
+
+This software maps LOWL language[2] to LLVM assembler. LOWL is an abstract
+low-level language used to develop portable software by ML/I and a couple
+of other programs.
+
+A LOWL-based program is composed of a machine-independent (MI) part and a
+machine depended (MD) part.
+The MI part is simply the collection of routines and data defined in the 
+LOWL sources.
+The MD part instead consists of LOWL extensions and runtime routines used
+for I/O and actual starting of the program.
+
+This software contains a LOWL to LLVM translator (including ML/I extensions)
+and runtime routines for running ML/I (specs for ML/I MD at [3].
+
+
+Prerequisites for compiling ML/I
+
+0. LLVM must be installed in your system. Specifically, you will need 'llc',
+   'opt' and 'llvm-as' to be accessible from your PATH.
+
+
+How to compile ML/I.
+
+0. Clean the current tree of temporary/old builds, typing 'make clean'.
+1. Dowload ML/I LOWL sources from the ML/I Macro Processor site[4].
+2. Type 'make ML1SRC=<path_to_ml1_lowl_sources>'
+
+If everything goes fine, you should have a 'ml1' executable, which is
+a simple ML/I macro processor that gets input from stdin and write output
+to stdout. Errors and other messages are sent to stderr.
+
+[1] http://www.ml1.org.uk, the ML/I Macro Processor site.
+[2] http://www.ml1.org.uk/htmldoc/lowlmap.html
+[3] http://www.ml1.org.uk/htmldoc/lowlml1.html
+[4] http://www.ml1.org.uk/tgz/lowlml1.tar.gz, or check in the Source Code 
+    section of http://www.ml1.org.uk/implementation.html; older versions
+    are also available at http://www.ml1.org.uk/archive.html
