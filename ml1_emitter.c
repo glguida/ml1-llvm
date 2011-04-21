@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "emitter.h"
 #include "lowl.h"
 #define w(...) printf(__VA_ARGS__)
@@ -27,7 +28,7 @@ emitter_md_fini(void)
  * If the function has to return, be sure to add a branch to
  * the next instruction.
  */
-uint8_t
+int
 md_gosub(char *v)
 {
 	if ( !strcmp(v, "MDQUIT") ) {
@@ -89,7 +90,7 @@ md_gosub(char *v)
 		 * MDREAD.
 		 */
 		static int cnt = 0;
-		w("%%mdread.r.%d = call i8 @mdread(i8* %%C_REG)\n", cnt, cnt);
+		w("%%mdread.r.%d = call i8 @mdread(i8* %%C_REG)\n", cnt);
 		w("%%mdread.c.%d = icmp eq i8 %%mdread.r.%d, 2\n", cnt, cnt);
 		w("br i1 %%mdread.c.%d, "
 			"label %%LOWL_LINE_%ld, label %%LOWL_LINE_%ld\n",

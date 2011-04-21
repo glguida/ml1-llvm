@@ -33,7 +33,7 @@ ml1_fini(void)
 }
 
 int
-main(int argc, char *argv)
+main(int argc, char *argv[])
 {
 	/* Initialize LOWL runtime. */
 	lowl_runtime_init();
@@ -47,6 +47,8 @@ main(int argc, char *argv)
 	/* Exit now. */
 	lowl_runtime_fini();
 	ml1_fini();
+
+	return 0;
 }
 
 
@@ -97,7 +99,7 @@ mdfind(void)
 {
 	lowlint_t n;
 
-	n = ml1_hash(LOWLVAR(IDPT), LOWLVAR(IDLEN));
+	n = ml1_hash((char *)LOWLVAR(IDPT), LOWLVAR(IDLEN));
 	LOWLVAR(HTABPT) = LOWLVAR(HASHPT) + n * (LLVM_PTRSIZE/8);
 }
 

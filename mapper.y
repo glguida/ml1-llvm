@@ -335,7 +335,7 @@ add_idsym(char *sym, uintptr_t val)
 	slot = hashfn(sym);
 
 	e = malloc(sizeof(struct idsym_e));
-	if ( e == NULL ) panic("Out of memory");
+	if ( e == NULL ) oom();
 	e->sym = sym;
 	e->val = val;
 	e->next = idsym_tbl[slot];

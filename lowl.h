@@ -19,4 +19,8 @@
 #define LHV_VAL		(ML1_HASHSZ * (LLVM_PTRSIZE/8))
 #endif
 
+void lowl_runtime_init(void);
+void lowl_runtime_fini(void);
+void lowl_run(void);
+
 #endif /* _LOWL_H */

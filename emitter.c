@@ -5,6 +5,7 @@
 #include <string.h>
 #include <assert.h>
 #include "lowl.h"
+#include "emitter.h"
 
 /*
  * Support functions
@@ -19,9 +20,10 @@
 	exit(-1);
 
 /* Out of memory. */
-static void oom(void)
+void oom(void)
 {
 	fprintf(stderr, "Out of memory!\n");
+	exit(-1);
 }
 
 /*
@@ -604,7 +606,7 @@ void emit_equ(char *arg1, char *arg2)
 }
 
 
-void emit_ident()
+void emit_ident(char *v, intptr_t num)
 {
 	/* IDENT handled in the parser. */
 }
@@ -658,6 +660,7 @@ void emit_hash(char *str)
 	tble->u.h.chain = ml1_hash(str, strlen(str));
 	tble->u.h.off = tbl_size;
 	tbl_append(tble);
+	fprintf(stderr, "Hash of %s: %d\n", str, tble->u.h.chain);
 #else
 	EMIT_PANIC("LOWL mapper compiled without ML/I exentions.");
 #endif
@@ -754,7 +757,7 @@ void emit_lcm(intptr_t nof)
 }
 
 
-void emit_lai(char *v)
+void emit_lai(char *v, char rx)
 {
 	static int cnt = 0;
 	w("%%lai.v.%d = load %%LLNUM* @%s\n", cnt, v);
@@ -765,7 +768,7 @@ void emit_lai(char *v)
 }
 
 
-void emit_lci(char *v)
+void emit_lci(char *v, char rx)
 {
 	static int cnt = 0;
 	w("%%lci.v.%d = load %%LLNUM* @%s\n", cnt, v);
@@ -804,7 +807,7 @@ void emit_stv(char *v, char px)
 }
 
 
-void emit_sti(char *v)
+void emit_sti(char *v, char px)
 {
 	static int cnt = 0;
 	w("%%sti.v.%d = load %%LLNUM* @%s\n", cnt, v);
@@ -835,7 +838,7 @@ void emit_aav(char *v)
 
 void emit_abv(char *v)
 {
-	static cnt = 0;
+	static int cnt = 0;
 	w("%%abv.%d = load %%LLNUM* %%B_REG;    AAV %s\n", cnt, v);
 	w("%%abv.2.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%abv.3.%d = add %%LLNUM %%abv.%d, %%abv.2.%d\n",
@@ -847,7 +850,7 @@ void emit_abv(char *v)
 
 void emit_aal(intptr_t nof)
 {
-	static cnt = 0;
+	static int cnt = 0;
 	w("%%aal.%d = load %%LLNUM* %%A_REG;    AAL %ld\n", cnt, nof);
 	w("%%aal.2.%d = add %%LLNUM %%aal.%d, %ld\n", cnt, cnt, nof);
 	w("store %%LLNUM %%aal.2.%d, %%LLNUM* %%A_REG\n", cnt);
@@ -892,7 +895,7 @@ void emit_sal(intptr_t nof)
 
 void emit_sbl(intptr_t nof)
 {
-	static cnt = 0;
+	static int cnt = 0;
 	w("%%sbl.b.%d = load %%LLNUM* %%B_REG\n", cnt);
 	w("%%sbl.r.%d = sub %%LLNUM %%sbl.b.%d, %ld\n", cnt, cnt, nof);
 	w("store %%LLNUM %%sbl.r.%d, %%LLNUM* %%B_REG\n", cnt);
@@ -902,7 +905,7 @@ void emit_sbl(intptr_t nof)
 
 void emit_multl(intptr_t nof)
 {
-	static cnt = 0;
+	static int cnt = 0;
 	w("%%mul.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%mul.r.%d = mul %%LLNUM %%mul.a.%d, %ld\n", cnt, cnt, nof);
 	w("store %%LLNUM %%mul.r.%d, %%LLNUM* %%A_REG\n", cnt);
@@ -992,13 +995,13 @@ void emit_ccl(char *s)
 }
 
 
-void emit_cai(char *v)
+void emit_cai(char *v, char ax)
 {
 	static int cnt = 0;
 	w("%%cai.v.%d = load %%LLNUM* @%s\n", cnt, v);
 	w("%%cai.p.%d = inttoptr %%LLNUM %%cai.v.%d to %%LLNUM*\n", cnt, cnt);
 	w("%%cai.r.%d = load %%LLNUM* %%cai.p.%d\n", cnt, cnt);
-	w("%%cai.a.%d = load %%LLNUM* %%A_REG\n", cnt, cnt);
+	w("%%cai.a.%d = load %%LLNUM* %%A_REG\n", cnt);
 	w("%%cai.cmp.%d = sub %%LLNUM %%cai.a.%d, %%cai.r.%d\n", cnt, cnt, cnt);
 	w("store %%LLNUM %%cai.cmp.%d, %%LLNUM* %%CMP\n", cnt);
 	cnt++;
@@ -1066,7 +1069,7 @@ void emit_linkb()
 }
 
 
-void emit_gosub(char *v)
+void emit_gosub(char *v, intptr_t dist)
 {
 	int linkroutine = 0;
 
@@ -1219,7 +1222,7 @@ void emit_golt(char *lbl, intptr_t dist, char ex, char ctx)
 }
 
 
-void emit_gopc(char *lbl)
+void emit_gopc(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int cnt = 0;
 	w("%%gopc.c.%d = load i8* %%C_REG\n", cnt);
@@ -1233,7 +1236,7 @@ void emit_gopc(char *lbl)
 }
 
 
-void emit_gond(char *lbl)
+void emit_gond(char *lbl, intptr_t dist, char ex, char ctx)
 {
 	static int cnt = 0;
 	w("%%gond.c.%d = load i8* %%C_REG\n", cnt);
@@ -1347,7 +1350,7 @@ void emit_nb(char *comment)
 }
 
 
-void emit_prgst()
+void emit_prgst(char *v)
 {
 }
 

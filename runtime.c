@@ -121,8 +121,10 @@ int stackp = -1;
 void
 lowl_pushlink(lowlint_t addr)
 {
-	if ( stackp == STACKSZ - 1 )
-		panic("Stack overflow! Consider resizing.");
+	if ( stackp == STACKSZ - 1 ) {
+		fprintf(stderr, "Subrouting stack exhausted! Increase STACKSZ in ml1-llvm sources.\n");
+		exit(-1);
+	}
 	stack[++stackp] = addr;
 }
 
@@ -130,7 +132,8 @@ lowlint_t
 lowl_poplink(void)
 {
 	if ( stackp < 0 ) {
-		panic("stack underflow!");
+		fprintf(stderr, "Subroutine stack underflow! This is a serious BUG in ml1-llvm. Please report.\n");
+		exit(-1);
 	}
 	return stack[stackp--];
 }
