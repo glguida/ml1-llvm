@@ -1,5 +1,6 @@
 # This variable defines the location of ML/I LOWL sources.
 ML1SRC?= ml1.lwl
+LOWLTESTSRC?= ltestl4a.lwl
 CFLAGS+= -Wall
 
 # The LOWL_REGSIZE variable controls the bisize of LOWL register.
@@ -12,7 +13,10 @@ CPPFLAGS+= -DLOWL_REGSIZE=$(LOWL_REGSIZE)
 endif
 
 ml1: runtime.c ml1.c ml1_hash.c ml1.llvm.s
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DLOWL_ML1 runtime.c ml1.c ml1_hash.c  ml1.llvm.s -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DLOWL_ML1 $^ -o $@
+
+lowltest: runtime.c lowltest.c lowltest.llvm.s
+	$(CC) $(CPPFLAGS) $(CFLAGS) -D__RUNTIME $^ -o $@
 
 %.llvm.s: %.bc
 	llc $(LLC_OPTS) $^ -o $@
@@ -23,10 +27,14 @@ ml1: runtime.c ml1.c ml1_hash.c ml1.llvm.s
 ml1.llvm: ml1-mapper $(ML1SRC)
 	./ml1-mapper < $(ML1SRC) > ml1.llvm
 
-ml1.lwl:
+lowltest.llvm: lowltest-mapper $(LOWLTESTSRC)
+	./lowltest-mapper < $(LOWLTESTSRC) > lowltest.llvm
 
 ml1-mapper: y.tab.c lex.yy.c emitter.c ml1_emitter.c ml1_hash.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DLOWL_ML1 -o $@ $^
+
+lowltest-mapper: y.tab.c lex.yy.c emitter.c lowltest.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $^
 
 y.tab.c: mapper.y 
 	$(YACC) -d mapper.y

@@ -36,11 +36,18 @@ How to compile ML/I.
 
 0. Clean the current tree of temporary/old builds, typing 'make clean'.
 1. Dowload ML/I LOWL sources from the ML/I Macro Processor site[4].
-2. Type 'make ML1SRC=<path_to_ml1_lowl_sources>'
+2. Type 'make ML1SRC=<path to ml1 lowl sources>'
 
 If everything goes fine, you should have a 'ml1' executable, which is
 a simple ML/I macro processor that gets input from stdin and write output
 to stdout. Errors and other messages are sent to stderr.
+
+
+How to compile LOWL Test.
+
+0. Make sure your current source tree is clean.
+1. Download LOWL Test sources from the ML/I Macro Processor site[5].
+2. type 'make lowltest LOWLTESTSRC=<path to lowl test sources>'
 
 
 Notes.

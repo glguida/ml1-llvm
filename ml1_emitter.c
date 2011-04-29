@@ -47,8 +47,7 @@ md_gosub(char *v)
 		w("br label %%LOWL_LINE_%ld\n", emitter_pc + 1);
 		cnt++;
 		return 1;
-	}
-	if ( !strcmp(v, "MDCONV") ) {
+	} else if ( !strcmp(v, "MDCONV") ) {
 		/*
 		 * MDCONV.
 		 */
