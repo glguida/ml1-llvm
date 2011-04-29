@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 #include "lowl.h"
 #include "emitter.h"
 
@@ -247,7 +248,7 @@ tbl_dump(void)
 			w("i8 %d", ptr->u.ch);
 			break;
 		case TBL_NUM:
-			w("%%LLNUM %ld", ptr->u.num);
+			w("%%LLNUM %"PRIdPTR, ptr->u.num);
 			break;
 		case TBL_STR:
 			w("[ %d x i8 ] c\"%s\"", 
@@ -719,7 +720,7 @@ void emit_lbv(char *v)
 
 void emit_lal(intptr_t nof)
 {
-	w("store %%LLNUM %ld, %%LLNUM* %%A_REG;    LAL %ld\n",
+	w("store %%LLNUM %"PRIdPTR", %%LLNUM* %%A_REG;    LAL %"PRIdPTR"\n",
 	  nof, nof);
 }
 
@@ -733,8 +734,8 @@ void emit_lcn(char cn)
 void emit_lam(intptr_t nof)
 {
 	static int lam_cnt = 0;
-	w("%%lam.%d = load %%LLNUM* %%B_REG;    LAM %ld\n", lam_cnt, nof);
-	w("%%lam.2.%d = add %%LLNUM %%lam.%d, %ld\n", lam_cnt, lam_cnt, nof);
+	w("%%lam.%d = load %%LLNUM* %%B_REG;    LAM %"PRIdPTR"\n", lam_cnt, nof);
+	w("%%lam.2.%d = add %%LLNUM %%lam.%d, %"PRIdPTR"\n", lam_cnt, lam_cnt, nof);
 	w("%%lam.3.%d = inttoptr %%LLNUM %%lam.2.%d to %%LLNUM*\n",
 	  lam_cnt, lam_cnt);
 	w("%%lam.4.%d = load %%LLNUM* %%lam.3.%d\n", lam_cnt, lam_cnt);
@@ -748,7 +749,7 @@ void emit_lcm(intptr_t nof)
 {
 	static int cnt = 0;
 	w("%%lcm.c.%d = load %%LLNUM* %%B_REG\n", cnt);
-	w("%%lcm.n.%d = add %%LLNUM %%lcm.c.%d, %ld\n", cnt, cnt, nof);
+	w("%%lcm.n.%d = add %%LLNUM %%lcm.c.%d, %"PRIdPTR"\n", cnt, cnt, nof);
 	w("%%lcm.p.%d = inttoptr %%LLNUM %%lcm.n.%d to i8*\n", cnt, cnt);
 	w("%%lcm.r.%d = load i8* %%lcm.p.%d\n", cnt, cnt);
 	w("store i8 %%lcm.r.%d\n, i8* %%C_REG\n", cnt);
@@ -851,8 +852,8 @@ void emit_abv(char *v)
 void emit_aal(intptr_t nof)
 {
 	static int cnt = 0;
-	w("%%aal.%d = load %%LLNUM* %%A_REG;    AAL %ld\n", cnt, nof);
-	w("%%aal.2.%d = add %%LLNUM %%aal.%d, %ld\n", cnt, cnt, nof);
+	w("%%aal.%d = load %%LLNUM* %%A_REG;    AAL %"PRIdPTR"\n", cnt, nof);
+	w("%%aal.2.%d = add %%LLNUM %%aal.%d, %"PRIdPTR"\n", cnt, cnt, nof);
 	w("store %%LLNUM %%aal.2.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
@@ -885,8 +886,8 @@ void emit_sbv(char *v)
 void emit_sal(intptr_t nof)
 {
 	static int sal_cnt = 0;
-	w("%%sal.%d = load %%LLNUM* %%A_REG;    SAL %ld\n", sal_cnt, nof);
-	w("%%sal.3.%d = sub %%LLNUM %%sal.%d, %ld\n",
+	w("%%sal.%d = load %%LLNUM* %%A_REG;    SAL %"PRIdPTR"\n", sal_cnt, nof);
+	w("%%sal.3.%d = sub %%LLNUM %%sal.%d, %"PRIdPTR"\n",
 	  sal_cnt, sal_cnt, nof);
 	w("store %%LLNUM %%sal.3.%d, %%LLNUM* %%A_REG\n", sal_cnt);
 	sal_cnt++;
@@ -897,7 +898,7 @@ void emit_sbl(intptr_t nof)
 {
 	static int cnt = 0;
 	w("%%sbl.b.%d = load %%LLNUM* %%B_REG\n", cnt);
-	w("%%sbl.r.%d = sub %%LLNUM %%sbl.b.%d, %ld\n", cnt, cnt, nof);
+	w("%%sbl.r.%d = sub %%LLNUM %%sbl.b.%d, %"PRIdPTR"\n", cnt, cnt, nof);
 	w("store %%LLNUM %%sbl.r.%d, %%LLNUM* %%B_REG\n", cnt);
 	cnt++;
 }
@@ -907,7 +908,7 @@ void emit_multl(intptr_t nof)
 {
 	static int cnt = 0;
 	w("%%mul.a.%d = load %%LLNUM* %%A_REG\n", cnt);
-	w("%%mul.r.%d = mul %%LLNUM %%mul.a.%d, %ld\n", cnt, cnt, nof);
+	w("%%mul.r.%d = mul %%LLNUM %%mul.a.%d, %"PRIdPTR"\n", cnt, cnt, nof);
 	w("store %%LLNUM %%mul.r.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
@@ -917,7 +918,7 @@ void emit_bump(char *v, uintptr_t nof)
 {
 	static int cnt = 0;
 	w("%%bump.v.%d = load %%LLNUM* @%s\n", cnt, v);
-	w("%%bump.r.%d = add %%LLNUM %%bump.v.%d, %ld\n", cnt, cnt, nof);
+	w("%%bump.r.%d = add %%LLNUM %%bump.v.%d, %"PRIdPTR"\n", cnt, cnt, nof);
 	w("store %%LLNUM %%bump.r.%d, %%LLNUM* @%s\n", cnt, v);
 	cnt++;
 }
@@ -939,7 +940,7 @@ void emit_andl(uintptr_t n)
 {
 	static int cnt = 0;
 	w("%%andl.a.%d = load %%LLNUM* %%A_REG\n", cnt);
-	w("%%andl.r.%d = and %%LLNUM %lu, %%andl.a.%d\n", cnt, n, cnt);
+	w("%%andl.r.%d = and %%LLNUM %"PRIuPTR", %%andl.a.%d\n", cnt, n, cnt);
 	w("store %%LLNUM %%andl.r.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 }
@@ -950,7 +951,7 @@ void emit_orl(uintptr_t n)
 #ifdef LOWL_ML1
 	static int cnt = 0;
 	w("%%orl.a.%d = load %%LLNUM* %%A_REG\n", cnt);
-	w("%%orl.r.%d = or %%LLNUM %lu, %%orl.a.%d\n", cnt, n, cnt);
+	w("%%orl.r.%d = or %%LLNUM %"PRIuPTR", %%orl.a.%d\n", cnt, n, cnt);
 	w("store %%LLNUM %%orl.r.%d, %%LLNUM* %%A_REG\n", cnt);
 	cnt++;
 #else
@@ -973,8 +974,8 @@ void emit_cav(char *v)
 void emit_cal(intptr_t nof)
 {
 	static int cal_cnt = 0;
-	w("%%cal.%d = load %%LLNUM* %%A_REG;   CAL %ld\n", cal_cnt, nof);
-	w("%%cal_cmp.%d = sub %%LLNUM %%cal.%d, %ld\n", cal_cnt, cal_cnt, nof);
+	w("%%cal.%d = load %%LLNUM* %%A_REG;   CAL %"PRIdPTR"\n", cal_cnt, nof);
+	w("%%cal_cmp.%d = sub %%LLNUM %%cal.%d, %"PRIdPTR"\n", cal_cnt, cal_cnt, nof);
 	w("store %%LLNUM %%cal_cmp.%d, %%LLNUM* %%CMP\n", cal_cnt);
 	cal_cnt++;
 }
@@ -1037,7 +1038,7 @@ void emit_subr(char *v, int parnm, uintptr_t n)
 void emit_exit(uintptr_t n, char *sub)
 {
 	/* See comment before callgraph functions. */
-	w("br label %%lowl_exit_%s_%ld;\n", sub, n);
+	w("br label %%lowl_exit_%s_%"PRIdPTR";\n", sub, n);
 }
 
 
@@ -1132,7 +1133,7 @@ void emit_css()
 
 void emit_go(char *lbl, intptr_t dist, char ex, char ctx)
 {
-	w("br label %%%s;    GO %s, %ld, %c, %c\n",
+	w("br label %%%s;    GO %s, %"PRIdPTR", %c, %c\n",
 	  lbl, lbl, dist, ex, ctx);
 }
 
@@ -1142,7 +1143,7 @@ void emit_goeq(char *lbl, intptr_t dist, char ex, char ctx)
 	static int goeq_cnt = 0;
 	w("%%goeq_cmp.%d = load %%LLNUM* %%CMP;\n", goeq_cnt);
 	w("%%goeq.%d = icmp eq %%LLNUM %%goeq_cmp.%d, 0;"
-	  "     GOEQ %s, %ld, %c, %c\n",
+	  "     GOEQ %s, %"PRIdPTR", %c, %c\n",
 	  goeq_cnt, goeq_cnt, lbl, dist, ex, ctx);
 	w("br i1 %%goeq.%d, label %%%s, label %%goeq_false.%d;\n",
 	  goeq_cnt, lbl, goeq_cnt);
@@ -1156,7 +1157,7 @@ void emit_gone(char *lbl, intptr_t dist, char ex, char ctx)
 	static int gone_cnt = 0;
 	w("%%gone_cmp.%d = load %%LLNUM* %%CMP;\n", gone_cnt);
 	w("%%gone.%d = icmp ne %%LLNUM %%gone_cmp.%d, 0;"
-	  "     GONE %s, %ld, %c, %c\n",
+	  "     GONE %s, %"PRIdPTR", %c, %c\n",
 	  gone_cnt, gone_cnt, lbl, dist, ex, ctx);
 	w("br i1 %%gone.%d, label %%%s, label %%gone_false.%d;\n",
 	  gone_cnt, lbl, gone_cnt);
@@ -1170,7 +1171,7 @@ void emit_goge(char *lbl, intptr_t dist, char ex, char ctx)
 	static int cnt = 0;
 	w("%%goge_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%goge.%d = icmp sge %%LLNUM %%goge_cmp.%d, 0;"
-	  "    GOGE %s, %ld, %c, %c\n",
+	  "    GOGE %s, %"PRIdPTR", %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
 	w("br i1 %%goge.%d, label %%%s, label %%goge_false.%d\n",
 	  cnt, lbl, cnt);
@@ -1185,7 +1186,7 @@ void emit_gogr(char *lbl, intptr_t dist, char ex, char ctx)
 	static int cnt = 0;
 	w("%%gogr_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%gogr.%d = icmp sgt %%LLNUM %%gogr_cmp.%d, 0;"
-	  "    GOGR %s, %ld, %c, %c\n",
+	  "    GOGR %s, %"PRIdPTR", %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
 	w("br i1 %%gogr.%d, label %%%s, label %%gogr_false.%d\n",
 	  cnt, lbl, cnt);
@@ -1199,7 +1200,7 @@ void emit_gole(char *lbl, intptr_t dist, char ex, char ctx)
 	static int cnt = 0;
 	w("%%gole_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%gole.%d = icmp sle %%LLNUM %%gole_cmp.%d, 0;"
-	  "    GOLE %s, %ld, %c, %c\n",
+	  "    GOLE %s, %"PRIdPTR", %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
 	w("br i1 %%gole.%d, label %%%s, label %%gole_false.%d\n",
 	  cnt, lbl, cnt);
@@ -1213,7 +1214,7 @@ void emit_golt(char *lbl, intptr_t dist, char ex, char ctx)
 	static int cnt = 0;
 	w("%%golt_cmp.%d = load %%LLNUM* %%CMP;\n", cnt);
 	w("%%golt.%d = icmp slt %%LLNUM %%golt_cmp.%d, 0;"
-	  "    GOLT %s, %ld, %c, %c\n",
+	  "    GOLT %s, %"PRIdPTR", %c, %c\n",
 	  cnt, cnt, lbl, dist, ex, ctx);
 	w("br i1 %%golt.%d, label %%%s, label %%golt_false.%d\n",
 	  cnt, lbl, cnt);
