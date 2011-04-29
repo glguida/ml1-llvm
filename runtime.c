@@ -6,18 +6,23 @@
 
 void lowl_main();
 
-/* Standard stack size. */
-#define LOWL_STACKSZ	10*1024
+/* Default stack size. */
+#define LOWL_STACKSZ	(5000*sizeof(lowlint_t))
 char *lowl_stack;
+size_t lowl_stacksz;
+
+FILE *errorstream = NULL;
 
 
 /*
  * LOWL runtime init/fini.
  */
 void
-lowl_runtime_init(void)
+lowl_runtime_init(size_t ws, FILE *errstream)
 {
-	lowl_stack = malloc(LOWL_STACKSZ);
+	lowl_stacksz = (ws == 0) ? LOWL_STACKSZ : ws*sizeof(lowlint_t);
+	lowl_stack = malloc(lowl_stacksz);
+	errorstream = errstream;
 }
 
 void
@@ -33,7 +38,7 @@ lowl_runtime_fini(void)
 void
 lowl_run(void)
 {
-	lowl_main(lowl_stack, lowl_stack+(LOWL_STACKSZ));
+	lowl_main(lowl_stack, lowl_stack+lowl_stacksz);
 }
 
 
@@ -43,7 +48,7 @@ lowl_run(void)
 void
 lowl_goadd_jmperror(void)
 {
-	fprintf(stderr, "GOADD fail: variable too big.\n"
+	fprintf(errorstream, "GOADD fail: variable too big.\n"
 		"Please increase the switch instruction table.\n");
 	exit(-1);
 }
@@ -51,7 +56,7 @@ lowl_goadd_jmperror(void)
 void
 lowl_exit_jmperror(void)
 {
-	fprintf(stderr, "EXIT fail: this is a serious BUG in callgraph.\n"
+	fprintf(errorstream, "EXIT fail: this is a serious BUG in callgraph.\n"
 		"Please report.\n");
 	exit(-1);
 }
@@ -70,9 +75,9 @@ lowl_puts(char *str)
 	char *ptr = str;
 	while ( *ptr != '\0' ) {
 		if ( *ptr == '$' )
-			putc('\n', stderr);
+			putc('\n', errorstream);
 		else
-			putc(*ptr, stderr);
+			putc(*ptr, errorstream);
 		ptr++;
 	}
 }
@@ -122,7 +127,7 @@ void
 lowl_pushlink(lowlint_t addr)
 {
 	if ( stackp == STACKSZ - 1 ) {
-		fprintf(stderr, "Subrouting stack exhausted! Increase STACKSZ in ml1-llvm sources.\n");
+		fprintf(errorstream, "Subrouting stack exhausted! Increase STACKSZ in ml1-llvm sources.\n");
 		exit(-1);
 	}
 	stack[++stackp] = addr;
@@ -132,7 +137,7 @@ lowlint_t
 lowl_poplink(void)
 {
 	if ( stackp < 0 ) {
-		fprintf(stderr, "Subroutine stack underflow! This is a serious BUG in ml1-llvm. Please report.\n");
+		fprintf(errorstream, "Subroutine stack underflow! This is a serious BUG in ml1-llvm. Please report.\n");
 		exit(-1);
 	}
 	return stack[stackp--];

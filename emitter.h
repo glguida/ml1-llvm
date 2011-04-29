@@ -15,7 +15,7 @@ void emit_thash();
 void emit_rl(char *str, intptr_t nof);
 void emit_linkr(char *v);
 void emit_linkb();
-#endif LOWL_ML1
+#endif /* LOWL_ML1 */
 
 
 void emit_newpc(int stp);

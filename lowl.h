@@ -1,7 +1,11 @@
 #ifndef _LOWL_H
 #define _LOWL_H
+#include <sys/types.h>
+#include <stdio.h>
 #include <inttypes.h>
 #include "llvm_config.h"
+
+#define LOWL_VERSION "0.1"
 
 /* Macro to access LOWL defined variables,
  * in case we implement a namespace for
@@ -19,7 +23,7 @@
 #define LHV_VAL		(ML1_HASHSZ * (LLVM_PTRSIZE/8))
 #endif
 
-void lowl_runtime_init(void);
+void lowl_runtime_init(size_t workspace, FILE *errstream);
 void lowl_runtime_fini(void);
 void lowl_run(void);
 
