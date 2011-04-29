@@ -5,6 +5,7 @@ symbol  	{letter}({digit}|{letter})*
 
 %{
 #include <stdlib.h>
+#include <stdint.h>
 #include "y.tab.h"
 
 int get_idsym(char *, uintptr_t *);

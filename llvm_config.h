@@ -35,7 +35,7 @@ typedef int64_t lowlint_t;
 #define PRIdLWI		PRId32
 typedef int32_t lowlint_t;
 #else
-#error "LOWL_REGSIZE set to an unsupported value (32 or 64)
+#error "LOWL_REGSIZE set to an unsupported value (32 or 64)"
 #endif /* LOWL_REGSIZE */
 
 #else /* !LOWL_REGSIZE */
