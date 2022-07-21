@@ -42,7 +42,7 @@ md_gosub(char *v)
 		 * MDERCH.
 		 */
 		static int cnt = 0;
-		w("%%mderch.%d = load i8* %%C_REG;\n", cnt);
+		w("%%mderch.%d = load i8, i8* %%C_REG;\n", cnt);
 		w("call void @mderch(i8 %%mderch.%d)\n", cnt);
 		w("br label %%LOWL_LINE_%ld\n", emitter_pc + 1);
 		cnt++;
@@ -79,7 +79,7 @@ md_gosub(char *v)
 		 * MDOUCH.
 		 */
 		static int cnt = 0;
-		w("%%mdouch.%d = load i8* %%C_REG;\n", cnt);
+		w("%%mdouch.%d = load i8, i8* %%C_REG;\n", cnt);
 		w("call void @mdouch(i8 %%mdouch.%d)\n", cnt);
 		w("br label %%LOWL_LINE_%ld\n", emitter_pc + 1);
 		cnt++;
