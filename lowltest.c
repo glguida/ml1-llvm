@@ -64,7 +64,7 @@ md_gosub(char *v)
 		 * MDERCH.
 		 */
 		static int cnt = 0;
-		printf("%%mderch.%d = load i8* %%C_REG;\n", cnt);
+		printf("%%mderch.%d = load i8, i8* %%C_REG;\n", cnt);
 		printf("call void @mderch(i8 %%mderch.%d)\n", cnt);
 		printf("br label %%LOWL_LINE_%ld\n", emitter_pc + 1);
 		cnt++;
