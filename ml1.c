@@ -7,7 +7,7 @@
 
 #define ML1_VERSION "LOWL-to-LLVM version " LOWL_VERSION " (AJB)"
 
-#define SVARS_NO 22
+#define SVARS_NO 23
 lowlint_t ml1_svars[SVARS_NO + 1];
 #define SVAR(_x) ml1_svars[SVARS_NO - (_x)]
 
@@ -28,6 +28,9 @@ ml1_init(void)
 
 	/* Initial S21 value: 1 */
 	SVAR(21) = 1;
+
+	/* Initial S23 value: 1 */
+	SVAR(23) = 1;
 
 	/* ML/I MD Spec: Last element must
 	 * contains the numbers of SVARS. */
@@ -211,8 +214,9 @@ uint8_t
 mdread(uint8_t *c)
 {
 	int r;
-	int inno = SVAR(10);
-	if ( inno == 0 )
+	int inno;
+retry:
+	if ( (inno = SVAR(10)) == 0 )
 		return 1;
 	if ( inno > infs + 100 ||
 		(inno <= 100 && inno > infs) ||
@@ -228,7 +232,13 @@ mdread(uint8_t *c)
 	}
 	r = getc(input[inno - 1]);
 	if ( r == EOF ) {
-		return 1;
+		int revert = SVAR(23);
+		if ( inno == revert )
+			return 1;
+		else {
+			SVAR(10) = revert;
+			goto retry;
+		}
 	}
 	*c = r;
 	return 2;
@@ -269,7 +279,7 @@ mdop()
 		break;
 	default: /* Division. */
 		{
-			/* Divide rounding to the lowest number. 
+			/* Divide rounding to the lowest number.
 			   Use ANSI C's integer division (that rounds
 			   to zero) and fix the result if needed. */
 			ldiv_t res;
@@ -285,7 +295,7 @@ mdop()
 			if ( sign && (res.rem != 0) ) {
 				/* Fix it. */
 				res.quot -= 1;
-			}			
+			}
 			LOWLVAR(MEVAL) = res.quot;
 			return 1;
 		}

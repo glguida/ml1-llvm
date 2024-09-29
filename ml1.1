@@ -39,6 +39,12 @@ between this and the use of values 1 to 5 is that the corresponding
 file is repositioned at its start; this is useful where a set of
 macros require multiple passes over a source file.
 
+When the end of an input stream is reached, ML/I checks to see if it
+is the \(dqrevert stream\(dq. If it is, the process is terminated;
+otherwise input is switched to the revert stream, and processing
+continues. The revert stream is initially 1; its value is held in
+\fIS23\fR and may be altered by the user if required.
+
 .SH Control of output
 Output may be directed to any combination of the nominated output
 files, including none at all. The values of \fIS21\fR and \fIS22\fR
