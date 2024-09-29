@@ -214,9 +214,17 @@ mdread(uint8_t *c)
 	int inno = SVAR(10);
 	if ( inno == 0 )
 		return 1;
-	if ( inno > infs ) {
+	if ( inno > infs + 100 ||
+		(inno <= 100 && inno > infs) ||
+		inno < 0 ) {
 		fprintf(debug, "S10 has illegal value, viz %d\n", inno);
 		exit(-2);
+	}
+	/* Reset input position */
+	if ( inno > 100 ) {
+		inno -= 100;
+		SVAR(10) = inno;
+		rewind(input[inno - 1]);
 	}
 	r = getc(input[inno - 1]);
 	if ( r == EOF ) {
@@ -231,7 +239,7 @@ void
 mdconv(void)
 {
 	static char buf[LOWLINT_ITOA_LEN];
-	LOWLVAR(IDLEN) = snprintf(buf, LOWLINT_ITOA_LEN, "%"PRIdLWI, 
+	LOWLVAR(IDLEN) = snprintf(buf, LOWLINT_ITOA_LEN, "%"PRIdLWI,
 				  LOWLVAR(MEVAL));
 	LOWLVAR(IDPT) = (uintptr_t)buf;
 }

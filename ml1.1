@@ -1,0 +1,58 @@
+.TH ML1 1 "September 2024" "Version 0.11"
+.SH ML/I User's Manual -- Appendix RR
+
+This implementation is based on version AJB of LOWL ML/I.
+
+This manual is based on ML/I User's Manual Appendix R for UNIX.
+
+.SH Restrictions and Additions
+This implementation of ML/I contains all the features described in the
+ML/I User's Manual, 6th Edition, February 2004.
+
+.SH Operating instructions and I/O
+.IP -v
+Print the version number of this implementation of ML/I.
+.IP -w\ n
+Set the amount of workspace available to ML/I to n words
+(the default is 16777216 words).
+.IP -d\ file
+Nominate file as the debugging file. By default, this is the standard
+error stream (usually the user's terminal). The name - is taken to
+mean the standard output.
+.IP -o\ file
+Nominate file as an output file. Up to four output files may be
+specified; each must be preceded by the -o flag. If no output files
+are specified, the standard output is used. An output file named - is
+also taken to be the standard output.  All other arguments to ML/I are
+taken to be the names of input files; there may be no more than five
+of these. If no input file is specified, the standard input is
+used. The name - is also taken to mean the standard input.
+
+.SH Control of input
+Input may be read from any one of the input streams; the value of \fIS10\fR
+controls the selection. The possible values are 1-5 or 101-105.
+
+If \fIS10\fR is set to a value between 101 and 105, 100 is subtracted from
+that value to obtain the number of the file to be selected for input;
+the modified value is also stored back into \fIS10\fR. The difference
+between this and the use of values 1 to 5 is that the corresponding
+file is repositioned at its start; this is useful where a set of
+macros require multiple passes over a source file.
+
+.SH Control of output
+Output may be directed to any combination of the nominated output
+files, including none at all. The values of \fIS21\fR and \fIS22\fR
+control the selection; \fIS21\fR controls output to all four files,
+and \fIS22\fR controls output to the second file only (this is just
+for backward compatibility). Each bit in \fIS21\fR controls an output
+file; the least significant bit controls the first output file (as
+specified on the command line), the next bit controls the second
+output file, and so on. In each case, if the bit is set it indicates
+that output is to take place to the corresponding file. For example, a
+value of 1 would cause output to file 1; a value of 2 would cause
+output to file 2; a value of 4 would cause output to file 3, and a
+value of 3 would cause output to files 1 and 2. For backwards
+compatibility, a nonzero value in \fIS22\fR also causes output to file
+2 to take place; the presence of this value or the presence of the
+appropriate bit in \fIS21\fR will cause output to take place, although
+the presence of both does not imply that output takes place twice.
