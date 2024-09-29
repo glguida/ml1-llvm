@@ -7,7 +7,7 @@
 void lowl_main();
 
 /* Default stack size. */
-#define LOWL_STACKSZ	(0x1000000*sizeof(lowlint_t))
+#define LOWL_STACKSZ	(0x10000*sizeof(lowlint_t))
 char *lowl_stack;
 size_t lowl_stacksz;
 
