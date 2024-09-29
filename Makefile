@@ -1,7 +1,8 @@
 # This variable defines the location of ML/I LOWL sources.
 ML1SRC?= ml1.lwl
 LOWLTESTSRC?= ltestl4a.lwl
-CFLAGS+= -Wall
+CFLAGS+= -Wall -O3
+TARGET=$(shell gcc -dumpmachine)
 
 # The LOWL_REGSIZE variable controls the bisize of LOWL register.
 #
@@ -22,13 +23,13 @@ lowltest: runtime.c lowltest.c lowltest.llvm.s
 	llc $(LLC_OPTS) $^ -o $@
 
 %.bc: %.llvm
-	llvm-as $^ -o - | opt -std-compile-opts -o $@
+	llvm-as $^ -o - | opt -O3 -o $@
 
 ml1.llvm: ml1-mapper $(ML1SRC)
-	./ml1-mapper < $(ML1SRC) > ml1.llvm
+	./ml1-mapper $(TARGET) < $(ML1SRC) > ml1.llvm
 
 lowltest.llvm: lowltest-mapper $(LOWLTESTSRC)
-	./lowltest-mapper < $(LOWLTESTSRC) > lowltest.llvm
+	./lowltest-mapper $(TARGET) < $(LOWLTESTSRC) > lowltest.llvm
 
 ml1-mapper: y.tab.c lex.yy.c emitter.c ml1_emitter.c ml1_hash.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DLOWL_ML1 -o $@ $^

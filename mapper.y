@@ -311,7 +311,7 @@ ml1_code_statement:
 
 ml1_charname:
 	STOPCD			{ $$ = 0; } 	/* ML/I */
-	| SLREP			{ $$ = 255; }	/* ML/I */
+	| SLREP			{ $$ = -1; }	/* ML/I */
 	;
 %%
 
@@ -367,7 +367,7 @@ void yyerror(char *s)
 
 int main(int argc, char **argv)
 {
-	emitter_init();
+	emitter_init(argv[1]);
 	yyparse();
 	emitter_fini();
 	return 0;
