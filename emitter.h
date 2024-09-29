@@ -2,7 +2,7 @@
 
 extern long emitter_pc;
 
-void emitter_init(void);
+void emitter_init(char *);
 void emitter_fini(void);
 void emitter_md_init(void);
 void emitter_md_fini(void);
