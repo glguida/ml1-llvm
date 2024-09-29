@@ -7,7 +7,7 @@
 
 #include "ml1.h"
 
-#define LOWL_VERSION "0.1"
+#define LOWL_VERSION "0.11"
 
 /* Macro to access LOWL defined variables,
  * in case we implement a namespace for
